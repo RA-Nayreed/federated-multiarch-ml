@@ -1,0 +1,8 @@
+flwr
+torch
+torchvision
+snntorch
+numpy
+matplotlib
+tqdm
+Pillow
