@@ -70,16 +70,16 @@ python inference.py --model_path models/cnn_cifar10_clients_rounds.pth --image_f
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--epochs` | 10 | Number of federated rounds |
+| `--epochs` | 40 | Number of federated rounds |
 | `--num_users` | 10 | Number of clients |
 | `--frac` | 1.0 | Fraction of clients per round |
-| `--local_ep` | 5 | Local training epochs |
+| `--local_ep` | 6 | Local training epochs |
 | `--local_bs` | 32 | Local batch size |
 | `--lr` | 0.01 | Learning rate (auto-adjusted for SNNs) |
 | `--model` | cnn | Model type: mlp, cnn, snn |
 | `--dataset` | mnist | Dataset: mnist, cifar10 |
 | `--iid` | False | Use IID data distribution |
-| `--gpu` | False | Enable GPU acceleration |
+| `--gpu` | True | Enable GPU acceleration |
 | `--snn_timesteps` | 25 | SNN simulation time steps |
 
 ## Project Structure
@@ -103,7 +103,7 @@ federated-multiarch-ml/
 - PyTorch 1.9+
 - Flower 1.0+
 - SNNTorch (for SNN models)
-- See `requirements.txt` for complete list
+- See [requirements.txt](https://github.com/RA-Nayreed/federated-multiarch-ml/blob/main/requirements.txt) for complete list
 
 
 ## License
