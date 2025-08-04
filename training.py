@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Interactive Federated Learning Launcher
 
@@ -9,7 +8,7 @@ import sys
 import os
 
 
-from fed_learning import main as flower_main  # Change to actual name if needed
+from main import main as flower_main  # Change to actual name if needed
 
 EXAMPLES = [
     {
