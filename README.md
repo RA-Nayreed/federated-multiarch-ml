@@ -1,14 +1,17 @@
 # Federated Multiarch Machine Learning
-A Flower-based federated learning framework supporting MLP, CNN and Spiking Neural Networks (SNN) under both IID and non‑IID data distributions.
+
+A Flower-based federated learning framework supporting MLP, CNN and Spiking Neural Networks (SNN) under both IID and non-IID data distributions.
 
 ## Features
 
 - **Multiple Model Types**: Multi-Layer Perceptron (MLP), Convolutional Neural Network (CNN), and Spiking Neural Network (SNN)
+- **Federated Strategies**: FedAvg, FedProx, FedAdagrad, FedAdam, FedDyn
 - **Datasets**: MNIST and CIFAR-10 support
 - **Distribution Options**: Both IID and Non-IID data distribution
 - **Easy Training**: Interactive launcher with predefined configurations
 - **Model Inference**: Simple inference script for saved models
 - **GPU Support**: CUDA acceleration when available
+- **Advanced Features**: Learning rate scheduling, gradient clipping, automatic strategy recommendations
 
 ## Quick Start
 
@@ -34,59 +37,88 @@ Choose from 12 predefined configurations covering all model-dataset combinations
 #### Option 2: Direct Command
 ```bash
 # Example: SNN on MNIST with 10 clients
-python fed_learning.py --model snn --dataset mnist --epochs 15 --num_users 10 --iid --gpu
+python main.py --model snn --dataset mnist --epochs 15 --num_users 10 --iid --gpu
 
 # Example: CNN on CIFAR-10 with Non-IID distribution
-python fed_learning.py --model cnn --dataset cifar10 --epochs 20 --num_users 16 --gpu
+python main.py --model cnn --dataset cifar10 --epochs 20 --num_users 16 --gpu
+
+# Example: Advanced training with FedProx strategy
+python main.py --model cnn --dataset mnist --strategy fedprox --fedprox_mu 0.1 --epochs 30 --gpu
 ```
 
 ### Run Inference
 
 ```bash
 # Single image prediction
-python inference.py --model_path models/snn_mnist_clients_rounds.pth --image_path test_image.png
+python inference.py --model_path models/snn_mnist_fedavg_clients10_rounds15.pth --image_path test_image.png
 
 # Batch inference on folder
-python inference.py --model_path models/cnn_cifar10_clients_rounds.pth --image_folder test_images/
+python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pth --image_folder test_images/
 ```
 
 ## Model Architectures
 
 ### Multi-Layer Perceptron (MLP)
-- 4-layer fully connected network
-- ReLU activation with dropout
+- 4-layer fully connected network (512→256→128→classes)
+- ReLU activation with dropout regularization
 - Suitable for both MNIST and CIFAR-10
 
 ### Convolutional Neural Network (CNN)
 - **MNIST**: 3 conv layers + 2 FC layers with batch normalization
-- **CIFAR-10**: Enhanced architecture with 3 conv layers + 3 FC layers
+- **CIFAR-10**: Enhanced architecture with 64→128→256 channels + 3 FC layers
+- MaxPooling, batch normalization, and dropout
 
 ### Spiking Neural Network (SNN)
 - **MNIST**: 3-layer fully connected SNN with Leaky Integrate-and-Fire neurons
 - **CIFAR-10**: Convolutional SNN with temporal dynamics
 - Configurable time steps (default: 25-30)
+- Surrogate gradient learning with membrane potential tracking
+
+## Federated Learning Strategies
+
+| Strategy | Best For | Description |
+|----------|----------|-------------|
+| `fedavg` | IID data | Standard federated averaging |
+| `fedprox` | Non-IID data | Proximal regularization for heterogeneous clients |
+| `fedadagrad` | Adaptive learning | Adaptive gradient-based optimization |
+| `fedadam` | Complex optimization | Adam-based federated learning |
+| `feddyn` | Non-IID data | Dynamic regularization for improved convergence |
 
 ## Command Line Arguments
 
+### Core Parameters
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--epochs` | 40 | Number of federated rounds |
+| `--epochs` | 10 | Number of federated rounds |
 | `--num_users` | 10 | Number of clients |
 | `--frac` | 1.0 | Fraction of clients per round |
-| `--local_ep` | 6 | Local training epochs |
+| `--local_ep` | 5 | Local training epochs |
 | `--local_bs` | 32 | Local batch size |
-| `--lr` | 0.01 | Learning rate (auto-adjusted for SNNs) |
-| `--model` | cnn | Model type: mlp, cnn, snn |
+| `--lr` | 0.01 | Learning rate (auto-adjusted per model) |
+| `--model` | snn | Model type: mlp, cnn, snn |
 | `--dataset` | mnist | Dataset: mnist, cifar10 |
+| `--strategy` | fedavg | FL strategy: fedavg, fedprox, fedadagrad, fedadam, feddyn |
 | `--iid` | False | Use IID data distribution |
-| `--gpu` | True | Enable GPU acceleration |
+| `--gpu` | False | Enable GPU acceleration |
+
+### Advanced Options
+| Argument | Default | Description |
+|----------|---------|-------------|
 | `--snn_timesteps` | 25 | SNN simulation time steps |
+| `--fedprox_mu` | 0.1 | FedProx proximal term coefficient |
+| `--feddyn_alpha` | 0.01 | FedDyn regularization coefficient |
+| `--use_lr_scheduler` | False | Enable learning rate scheduling |
+| `--warmup_epochs` | 5.0 | Warmup epochs for LR scheduler |
+| `--auto_switch_fedprox` | False | Auto-switch to FedProx for non-IID data |
 
 ## Project Structure
 
 ```
 federated-multiarch-ml/
-├── fed_learning.py      # Main federated learning implementation
+├── main.py              # Main federated learning implementation
+├── models.py            # Neural network model definitions
+├── strategy.py          # Flower client and strategy implementations
+├── utils.py             # Utility functions for data and model handling
 ├── inference.py         # Model inference script
 ├── training.py          # Interactive training launcher
 ├── requirements.txt     # Python dependencies
@@ -95,7 +127,41 @@ federated-multiarch-ml/
 └── data/               # Dataset cache (created automatically)
 ```
 
+## Training Examples
 
+### Quick Start Examples
+```bash
+# Basic CNN training on MNIST
+python main.py --model cnn --dataset mnist --epochs 20 --gpu
+
+# SNN with custom timesteps on CIFAR-10
+python main.py --model snn --dataset cifar10 --snn_timesteps 30 --epochs 25 --gpu
+
+# Non-IID training with FedProx
+python main.py --model mlp --dataset mnist --strategy fedprox --fedprox_mu 0.1 --epochs 30
+```
+
+### Advanced Training
+```bash
+# Large-scale federated learning with learning rate scheduling
+python main.py \
+    --model cnn \
+    --dataset cifar10 \
+    --strategy fedadam \
+    --num_users 20 \
+    --epochs 50 \
+    --use_lr_scheduler \
+    --warmup_epochs 3 \
+    --gpu
+```
+
+## Model Inference Features
+
+- **Single Image Prediction**: Get top-k predictions with confidence scores
+- **Batch Processing**: Process entire folders with progress tracking
+- **Automatic Preprocessing**: Dataset-specific image transformations
+- **Summary Statistics**: Accuracy metrics and class distribution analysis
+- **Multiple Formats**: Support for PNG, JPG, JPEG, BMP, TIFF
 
 ## Requirements
 
@@ -103,8 +169,22 @@ federated-multiarch-ml/
 - PyTorch 1.9+
 - Flower 1.0+
 - SNNTorch (for SNN models)
-- See [requirements.txt](https://github.com/RA-Nayreed/federated-multiarch-ml/blob/main/requirements.txt) for complete list
+- See [requirements.txt](requirements.txt) for complete list
 
+## Performance Tips
+
+1. **GPU Usage**: Use `--gpu` flag for CUDA acceleration
+2. **Memory Optimization**: Reduce `--local_bs` if encountering OOM errors
+3. **Non-IID Data**: Use `--strategy fedprox` or `--auto_switch_fedprox`
+4. **SNN Training**: Lower learning rates work better (auto-adjusted)
+5. **Convergence**: Enable `--use_lr_scheduler` for better training dynamics
+
+## Troubleshooting
+
+- **CUDA Out of Memory**: Reduce batch size or number of clients
+- **Strategy Import Errors**: Install with `pip install flwr[strategies]`
+- **Poor Convergence**: Try different strategies or enable LR scheduling
+- **Data Distribution Warnings**: Normal for non-IID scenarios
 
 ## License
 
