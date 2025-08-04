@@ -120,6 +120,16 @@ def load_data(dataset: str):
 
 def distribute_data(train_data, num_clients: int, iid: bool = True):
     """Distribute data among clients (IID or non-IID)"""
+    # Validate input parameters
+    if num_clients <= 0:
+        raise ValueError(f"Number of clients must be positive, got {num_clients}")
+    if len(train_data) < num_clients:
+        raise ValueError(f"Not enough data ({len(train_data)}) for {num_clients} clients")
+    
+    min_samples_per_client = 1
+    if len(train_data) // num_clients < min_samples_per_client:
+        print(f"Warning: Very few samples per client ({len(train_data) // num_clients}). Consider reducing num_clients.")
+    
     if iid:
         return distribute_iid(train_data, num_clients)
     else:

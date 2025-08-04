@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Inference script for saved federated learning models
 Enhanced with proper error handling and robustness
@@ -15,7 +14,7 @@ import sys
 
 # Import your model classes and functions
 try:
-    from fed_learning import load_model
+    from main import load_model
 except ImportError as e:
     print(f"Error importing fed_learning module: {e}")
     print("Make sure fed_learning.py is in the same directory or in your Python path")

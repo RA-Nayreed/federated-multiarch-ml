@@ -43,18 +43,35 @@ class FlowerClient(fl.client.NumPyClient):
         self.net = get_model(model_name, dataset, args.snn_timesteps)
         self.net.to(self.device)
         client_dataset = Subset(train_data, list(client_indices))
-        self.trainloader = DataLoader(client_dataset, batch_size=args.local_bs, shuffle=True,
-                                      pin_memory=True if self.device.type == 'cuda' else False)
+        # Adjust batch size if dataset is too small
+        effective_batch_size = min(args.local_bs, len(client_dataset))
+        if effective_batch_size != args.local_bs:
+            print(f"Client {client_id}: Reduced batch size from {args.local_bs} to {effective_batch_size} due to small dataset")
+
+        self.trainloader = DataLoader(client_dataset, batch_size=effective_batch_size, shuffle=True,
+                                    pin_memory=True if self.device.type == 'cuda' else False)
         self.testloader = DataLoader(test_data, batch_size=128, shuffle=False,
                                      pin_memory=True if self.device.type == 'cuda' else False)
         print(f"Client {client_id}: {len(client_indices)} samples on device {self.device}")
 
     def cleanup(self):
-        """Cleanup GPU memory"""
+        # Clean up DataLoaders first
+        if hasattr(self, 'trainloader'):
+            del self.trainloader
+        if hasattr(self, 'testloader'):
+            del self.testloader
+        
+        # Clean up model and optimizer
         if hasattr(self, 'net'):
+            self.net.cpu()  # Move to CPU before deletion
             del self.net
+        
+        # Force garbage collection and GPU cleanup
+        import gc
+        gc.collect()
         if self.device.type == 'cuda':
             torch.cuda.empty_cache()
+            torch.cuda.synchronize()
 
     def get_parameters(self, config):
         """Return current local model parameters."""
@@ -112,26 +129,35 @@ class FlowerClient(fl.client.NumPyClient):
         total = 0
         for epoch in range(self.args.local_ep):
             batch_losses = []
+            # Check if trainloader is empty
+            if len(self.trainloader) == 0:
+                print(f"Client {self.client_id}: No batches to train on, skipping epoch {epoch}")
+                continue
             for batch_idx, (data, targets) in enumerate(self.trainloader):
                 data, targets = data.to(self.device, non_blocking=True), targets.to(self.device, non_blocking=True)
                 optimizer.zero_grad()
                 
                 if self.model_name == 'snn':
                     _, mem_rec = self.net(data)
-                    # CORRECTED: Sum membrane potentials over all timesteps for a more stable prediction
-                    outputs = torch.stack(mem_rec, dim=0).sum(dim=0)
+                    if isinstance(mem_rec, list):
+                        mem_rec = torch.stack(mem_rec, dim=0)  
+                    outputs = mem_rec.sum(dim=0)  
                 else:
                     outputs = self.net(data)
                 
                 loss = criterion(outputs, targets)
 
-                # CORRECTED: Robust FedProx implementation
                 if self.args.strategy == 'fedprox' and getattr(self.args, 'fedprox_mu', 0) > 0:
                     # Create a dictionary of the global parameters, mapping names to tensors
                     # This relies on the standard Flower assumption that parameter order is consistent
-                    global_params = {name: torch.from_numpy(param).to(self.device)
-                                     for name, param in zip(self.net.state_dict().keys(), global_parameters)}
-                    
+                    param_names = list(self.net.state_dict().keys())
+                    if len(global_parameters) != len(param_names):
+                        raise ValueError(f"Expected {len(param_names)} global parameters, got {len(global_parameters)}")
+                    global_params = {
+                        param_names[i]: torch.from_numpy(global_parameters[i]).to(self.device)
+                        for i in range(len(param_names))
+                    }
+
                     proximal_term = torch.tensor(0.0, device=self.device)
 
                     # Iterate over learnable parameters of the local model
@@ -142,6 +168,12 @@ class FlowerClient(fl.client.NumPyClient):
                             proximal_term += torch.norm(local_param - global_params[name]) ** 2
                     
                     loss = loss + (self.args.fedprox_mu / 2.0) * proximal_term
+                    
+                    # Clean up GPU memory by releasing global parameter tensors
+                    for t in global_params.values():
+                        del t
+                    if self.device.type == 'cuda':
+                        torch.cuda.empty_cache()
 
                 loss.backward()
 
@@ -188,11 +220,12 @@ class FlowerClient(fl.client.NumPyClient):
                 data, targets = data.to(self.device), targets.to(self.device)
                 if self.model_name == 'snn':
                     _, mem_rec = self.net(data)
-                    # CORRECTED: Sum membrane potentials over all timesteps for a more stable prediction
-                    outputs = torch.stack(mem_rec, dim=0).sum(dim=0)
+                    if isinstance(mem_rec, list):
+                        mem_rec = torch.stack(mem_rec, dim=0) 
+                    outputs = mem_rec.sum(dim=0)
                 else:
                     outputs = self.net(data)
-                
+
                 loss = criterion(outputs, targets)
                 test_loss += loss.item()
                 _, predicted = torch.max(outputs.data, 1)
@@ -203,12 +236,19 @@ class FlowerClient(fl.client.NumPyClient):
         avg_loss = test_loss / len(self.testloader) if len(self.testloader) > 0 else 0.0
         return avg_loss, accuracy
 
+
 def client_fn(cid: str, train_data, test_data, client_data_dict, model_name: str, dataset: str, args):
     """Create a Flower client with proper cleanup."""
     client_id = int(cid)
     client_indices = client_data_dict.get(client_id, set())
     if not client_indices:
-        print(f"Warning: Client {client_id} has no assigned data.")
+        raise ValueError(f"Client {client_id} has no assigned data. Check data distribution.")
+
+    # Add validation for minimum data
+    min_samples = max(1, args.local_bs // 2)  # At least half a batch
+    if len(client_indices) < min_samples:
+        print(f"Warning: Client {client_id} has only {len(client_indices)} samples (minimum recommended: {min_samples})")
+
     try:
         client = FlowerClient(client_id, train_data, test_data, client_indices, model_name, dataset, args)
         

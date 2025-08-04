@@ -56,13 +56,19 @@ def run_simulation(args):
     if args.gpu and torch.cuda.is_available():
         available_gpus = torch.cuda.device_count()
         if available_gpus > 0:
-            # Assign a fraction of a GPU per client if needed, or 1 GPU if only one client fits
-            # Fractional GPU assignment example (adjust as needed):
-            # Aim for at least one client per GPU, or share if more clients than GPUs
-            gpus_per_client = min(1.0, max(0.1, 1.0 / max(1, args.num_users)))
-            # Ensure total requested doesn't exceed available (Ray handles this, but good to be aware)
+            # More intelligent GPU allocation
+            if args.num_users <= available_gpus:
+                # Each client gets a full GPU if possible
+                gpus_per_client = 1.0
+            elif args.num_users <= available_gpus * 4:
+                # Share GPUs among clients
+                gpus_per_client = max(0.25, 1.0 / args.num_users)
+            else:
+                # Many clients, minimal GPU allocation
+                gpus_per_client = max(0.1, available_gpus / args.num_users)
+
             client_resources["num_gpus"] = gpus_per_client
-            print(f"Assigned approx. {gpus_per_client} GPU(s) per client.")
+            print(f"Assigned {gpus_per_client} GPU(s) per client ({available_gpus} total GPUs, {args.num_users} clients)")
 
 
     # Start simulation
@@ -106,6 +112,7 @@ def main():
     parser.add_argument('--use_lr_scheduler', action='store_true', help='Enable learning rate scheduler (warmup + cosine decay)')
     parser.add_argument('--warmup_epochs', type=float, default=5.0, help='Number of warmup epochs (can be fractional)')
     parser.add_argument('--lr_min', type=float, default=1e-6, help='Minimum learning rate for cosine decay')
+    parser.add_argument('--auto_switch_fedprox', action='store_true', help='Auto-switch to FedProx for non-IID data')
     
     # Model and dataset parameters
     parser.add_argument('--model', type=str, default='snn', choices=['mlp', 'cnn', 'snn'], help="model")
@@ -136,10 +143,11 @@ def main():
         if args.strategy == 'fedavg':
             print("Warning: FedAvg may be suboptimal for non-IID data.")
             print(f"Consider using: {', '.join(recommended_strategies)} for better performance.")
-            # Only auto-change if user explicitly wants it (removed auto-change for clarity)
-            if input("Auto-switch to FedProx? (y/n): ").lower() == 'y':
-                 args.strategy = 'fedprox'
-                 print("Switched to FedProx for non-IID data distribution")
+
+            if args.auto_switch_fedprox:
+                args.strategy = 'fedprox'
+                print("Auto-switched to FedProx for non-IID data distribution")
+
         elif args.strategy in recommended_strategies:
             print(f"Using {args.strategy.upper()} for non-IID data distribution")
         else:
@@ -150,12 +158,12 @@ def main():
     default_lr = 0.01 
     if args.lr == default_lr:  
         if args.model == 'snn':
-            args.lr = 0.01 
+            args.lr = 0.005 
         elif args.model == 'cnn':
             args.lr = 0.01 
         elif args.model == 'mlp':
             if args.dataset == 'cifar10':
-                args.lr = 0.01 
+                args.lr = 0.005 
             else:
                 args.lr = 0.01 
         print(f"Auto-adjusted learning rate to {args.lr} for {args.model} model")
