@@ -9,8 +9,6 @@ import numpy as np
 import os
 from collections import OrderedDict
 from typing import Dict, List, Tuple
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 
 
@@ -234,3 +232,16 @@ def save_model(model, model_name, dataset, strategy, args, save_dir="./models"):
     }, save_path)
     print(f"Model saved to: {save_path}")
     return save_path
+
+def load_model(model_path):
+    """Load a saved model from checkpoint"""
+    checkpoint = torch.load(model_path, map_location='cpu')
+    model_name = checkpoint['model_name']
+    dataset = checkpoint['dataset']
+    snn_timesteps = checkpoint.get('snn_timesteps', 25)
+    
+    from models import get_model
+    model = get_model(model_name, dataset, snn_timesteps)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    
+    return model, checkpoint

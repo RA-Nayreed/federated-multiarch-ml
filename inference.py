@@ -12,9 +12,8 @@ import argparse
 import os
 import sys
 
-# Import your model classes and functions
 try:
-    from main import load_model
+    from utils import load_model
 except ImportError as e:
     print(f"Error importing fed_learning module: {e}")
     print("Make sure fed_learning.py is in the same directory or in your Python path")
@@ -74,7 +73,7 @@ def predict(model, image_tensor, model_name, dataset):
                 outputs = model(image_tensor)
                 if isinstance(outputs, tuple):
                     spk_rec, mem_rec = outputs
-                    outputs = mem_rec[-1]  # Use final membrane potential
+                    outputs = mem_rec[-1]  
                 else:
                     # If it's not a tuple, assume it's the output directly
                     pass
@@ -176,7 +175,6 @@ def main():
     args = parser.parse_args()
 
     try:
-        # Validate arguments
         validate_args(args)
         
         print(f"Loading model from: {args.model_path}")

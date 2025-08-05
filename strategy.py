@@ -1,7 +1,6 @@
 """Flower Client and Strategy Implementations"""
 import flwr as fl
 import numpy as np
-import torch.nn.functional as F
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -63,7 +62,7 @@ class FlowerClient(fl.client.NumPyClient):
         
         # Clean up model and optimizer
         if hasattr(self, 'net'):
-            self.net.cpu()  # Move to CPU before deletion
+            self.net.cpu() 
             del self.net
         
         # Force garbage collection and GPU cleanup
@@ -148,8 +147,6 @@ class FlowerClient(fl.client.NumPyClient):
                 loss = criterion(outputs, targets)
 
                 if self.args.strategy == 'fedprox' and getattr(self.args, 'fedprox_mu', 0) > 0:
-                    # Create a dictionary of the global parameters, mapping names to tensors
-                    # This relies on the standard Flower assumption that parameter order is consistent
                     param_names = list(self.net.state_dict().keys())
                     if len(global_parameters) != len(param_names):
                         raise ValueError(f"Expected {len(param_names)} global parameters, got {len(global_parameters)}")
@@ -295,7 +292,6 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
         "evaluate_metrics_aggregation_fn": weighted_average,
     }
 
-    # CORRECTED: A single reusable mixin to add model-saving functionality to any strategy.
     class SaveFinalModelMixin:
         """Mixin class to save the final aggregated parameters."""
         def __init__(self, *args, **kwargs):
@@ -314,7 +310,6 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
             
             return aggregated_parameters, aggregated_metrics
 
-    # CORRECTED: Strategy implementations now use the mixin to avoid boilerplate code.
     if strategy_name == "fedavg":
         class FedAvgWithSave(SaveFinalModelMixin, fl.server.strategy.FedAvg):
             pass
@@ -355,8 +350,7 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
         return FedAdamWithSave(eta=0.01, beta_1=0.9, beta_2=0.999, tau=1e-9, **base_config)
 
     elif strategy_name == "feddyn":
-        # This is a custom strategy and doesn't follow the same inheritance pattern,
-        # so it's left as is. It already contains the final_parameters logic.
+
         class SaveModelFedDyn(fl.server.strategy.Strategy):
             def __init__(self, fraction_fit=1.0, fraction_evaluate=1.0, min_fit_clients=2,
                          min_evaluate_clients=2, min_available_clients=2, initial_parameters=None,
