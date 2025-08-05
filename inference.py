@@ -175,6 +175,7 @@ def main():
     args = parser.parse_args()
 
     try:
+
         validate_args(args)
         
         print(f"Loading model from: {args.model_path}")
