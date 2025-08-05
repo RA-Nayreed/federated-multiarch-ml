@@ -192,6 +192,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [Flower Framework](https://flower.dev/) for federated learning infrastructure
-- [SNNTorch](https://snntorch.readthedocs.io/) for spiking neural network implementation
-- PyTorch team for the deep learning framework
+- [Flower](https://flower.dev/) — for the federated learning infrastructure
+- [SNNTorch](https://snntorch.readthedocs.io/) — for spiking neural network modeling
+- [PyTorch](https://pytorch.org/) — for the deep learning backend
+- [OpenAI ChatGPT](https://openai.com/chatgpt) — for assistance in code debugging, design, and documentation
+- [Anthropic Claude](https://www.anthropic.com/index/claude) — for research support, code suggestions, and implementation guidance
+
+> ⚠️ Parts of this project were developed with assistance from AI tools (ChatGPT & Claude). All code was verified, tested, and curated manually.
