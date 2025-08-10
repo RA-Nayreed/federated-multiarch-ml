@@ -89,10 +89,10 @@ python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pt
 ### Core Parameters
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--epochs` | 10 | Number of federated rounds |
+| `--epochs` | 40 | Number of federated rounds |
 | `--num_users` | 10 | Number of clients |
 | `--frac` | 1.0 | Fraction of clients per round |
-| `--local_ep` | 5 | Local training epochs |
+| `--local_ep` | 6 | Local training epochs |
 | `--local_bs` | 32 | Local batch size |
 | `--lr` | 0.01 | Learning rate (auto-adjusted per model) |
 | `--model` | snn | Model type: mlp, cnn, snn |
@@ -195,7 +195,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Flower](https://flower.dev/) — for the federated learning infrastructure
 - [SNNTorch](https://snntorch.readthedocs.io/) — for spiking neural network modeling
 - [PyTorch](https://pytorch.org/) — for the deep learning backend
-- [OpenAI ChatGPT](https://openai.com/chatgpt) — for assistance in code debugging, design, and documentation
+- [OpenAI ChatGPT](https://openai.com/chatgpt) — for assistance in code debugging, design.
 - [Anthropic Claude](https://www.anthropic.com/index/claude) — for research support, code suggestions, and implementation guidance
+- [Cursor AI](https://www.cursor.com/) — for enhanced code documentation and developer productivity
+
 
 > Parts of this project were developed with assistance from AI tools (ChatGPT & Claude). All code was verified, tested, and curated manually.

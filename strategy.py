@@ -181,7 +181,7 @@ class FlowerClient(fl.client.NumPyClient):
                 betas=(0.9, 0.999), 
                 eps=1e-8
             )
-        else:
+        elif self.model_name in ['cnn', 'mlp']:
             optimizer = optim.SGD(
                 self.net.parameters(),
                 lr=self.args.lr,
@@ -189,6 +189,8 @@ class FlowerClient(fl.client.NumPyClient):
                 weight_decay=getattr(self.args, 'weight_decay', 1e-4),
                 nesterov=getattr(self.args, 'nesterov', False)
             )
+        else:
+            raise ValueError(f"Unsupported model type: {self.model_name}")
         criterion = nn.CrossEntropyLoss()
 
         scheduler = None
@@ -215,17 +217,20 @@ class FlowerClient(fl.client.NumPyClient):
                 if self.model_name == 'snn':
                     _, mem_rec = self.net(data)
                     if isinstance(mem_rec, list):
-                        mem_rec = torch.stack(mem_rec, dim=0)  
-                    outputs = mem_rec.sum(dim=0)  
+                        mem_rec = torch.stack(mem_rec, dim=0)
+                    elif not isinstance(mem_rec, torch.Tensor):
+                        raise ValueError("Unexpected SNN output format: membrane potentials should be tensor")
+                    # Use sum across time dimension for consistent behavior
+                    outputs = mem_rec.sum(dim=0)
                 else:
                     outputs = self.net(data)
                 
                 loss = criterion(outputs, targets)
 
-                if self.args.strategy == 'fedprox' and getattr(self.args, 'fedprox_mu', 0) > 0:
+                if self.args.strategy == 'fedprox' and getattr(self.args, 'fedprox_mu', 0.1) > 0:
                     param_names = list(self.net.state_dict().keys())
                     if len(global_parameters) != len(param_names):
-                        raise ValueError(f"Expected {len(param_names)} global parameters, got {len(global_parameters)}")
+                        raise ValueError(f"Parameter mismatch: expected {len(param_names)} global parameters, got {len(global_parameters)}")
                     global_params = {
                         param_names[i]: torch.from_numpy(global_parameters[i]).to(self.device)
                         for i in range(len(param_names))
@@ -293,7 +298,10 @@ class FlowerClient(fl.client.NumPyClient):
                 if self.model_name == 'snn':
                     _, mem_rec = self.net(data)
                     if isinstance(mem_rec, list):
-                        mem_rec = torch.stack(mem_rec, dim=0) 
+                        mem_rec = torch.stack(mem_rec, dim=0)
+                    elif not isinstance(mem_rec, torch.Tensor):
+                        raise ValueError("Unexpected SNN output format: membrane potentials should be tensor")
+                    # Use sum across time dimension for consistent behavior
                     outputs = mem_rec.sum(dim=0)
                 else:
                     outputs = self.net(data)

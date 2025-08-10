@@ -121,15 +121,13 @@ def predict(model: torch.nn.Module, image_tensor: torch.Tensor,
         
         with torch.no_grad():
             if model_name == 'snn':
-                outputs = model(image_tensor)
-                if isinstance(outputs, tuple):
-                    spk_rec, mem_rec = outputs
-                    if isinstance(mem_rec, torch.Tensor):
-                        outputs = mem_rec[-1] if mem_rec.dim() > 2 else mem_rec
-                    else:
-                        raise ValueError("Unexpected SNN output format")
-                else:
-                    outputs = outputs
+                _, mem_rec = model(image_tensor)
+                if isinstance(mem_rec, list):
+                    mem_rec = torch.stack(mem_rec, dim=0)
+                elif not isinstance(mem_rec, torch.Tensor):
+                    raise ValueError("Unexpected SNN output format: membrane potentials should be tensor")
+                # Use sum across time dimension for consistent behavior with training
+                outputs = mem_rec.sum(dim=0)
             else:
                 outputs = model(image_tensor)
         

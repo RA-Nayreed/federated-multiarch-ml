@@ -75,15 +75,10 @@ def run_simulation(args: argparse.Namespace) -> Optional[fl.server.history.Histo
     if args.gpu and torch.cuda.is_available():
         available_gpus = torch.cuda.device_count()
         if available_gpus > 0:
-            if args.num_users <= available_gpus:
-                gpus_per_client = 1.0
-            elif args.num_users <= available_gpus * 4:
-                gpus_per_client = max(0.25, 1.0 / args.num_users)
-            else:
-                gpus_per_client = max(0.1, available_gpus / args.num_users)
-
+            # Simple allocation: distribute GPUs evenly among clients
+            gpus_per_client = min(1.0, available_gpus / args.num_users)
             client_resources["num_gpus"] = gpus_per_client
-            print(f"Assigned {gpus_per_client} GPU(s) per client "
+            print(f"Assigned {gpus_per_client:.2f} GPU(s) per client "
                   f"({available_gpus} total GPUs, {args.num_users} clients)")
 
     # Start simulation
@@ -130,13 +125,13 @@ def main():
     parser = argparse.ArgumentParser(description='Flower Federated Learning with SNN/CNN/MLP')
     
     # Federated learning parameters
-    parser.add_argument('--epochs', type=int, default=10, 
+    parser.add_argument('--epochs', type=int, default=40, 
                        help="Number of federated learning rounds")
     parser.add_argument('--num_users', type=int, default=10, 
                        help="Number of clients participating in training")
     parser.add_argument('--frac', type=float, default=1.0, 
                        help='Fraction of clients to sample per round')
-    parser.add_argument('--local_ep', type=int, default=5, 
+    parser.add_argument('--local_ep', type=int, default=6, 
                        help="Number of local training epochs per client")
     parser.add_argument('--local_bs', type=int, default=32, 
                        help="Local batch size for client training")
@@ -179,6 +174,16 @@ def main():
                        help='FedDyn alpha coefficient')
     
     args = parser.parse_args()
+    
+    # Validate SNN timesteps
+    if args.model == 'snn' and args.snn_timesteps <= 0:
+        raise ValueError("SNN timesteps must be positive")
+    
+    # Validate strategy parameters
+    if args.fedprox_mu < 0:
+        raise ValueError("FedProx mu must be non-negative")
+    if args.feddyn_alpha <= 0:
+        raise ValueError("FedDyn alpha must be positive")
 
     # Strategy recommendation based on data distribution
     if args.iid:

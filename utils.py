@@ -329,13 +329,28 @@ def load_model(model_path: str) -> Tuple[torch.nn.Module, Dict[str, Any]]:
     and configuration parameters.
 
     """
-    checkpoint = torch.load(model_path, map_location='cpu')
+    try:
+        checkpoint = torch.load(model_path, map_location='cpu')
+    except Exception as e:
+        raise RuntimeError(f"Failed to load model from {model_path}: {e}")
+    
+    if 'model_name' not in checkpoint:
+        raise ValueError(f"Invalid checkpoint file: missing 'model_name' in {model_path}")
+    if 'dataset' not in checkpoint:
+        raise ValueError(f"Invalid checkpoint file: missing 'dataset' in {model_path}")
+    
     model_name = checkpoint['model_name']
     dataset = checkpoint['dataset']
     snn_timesteps = checkpoint.get('snn_timesteps', 25)
     
+    if snn_timesteps <= 0:
+        raise ValueError(f"Invalid SNN timesteps in checkpoint: {snn_timesteps}")
+    
     from models import get_model
-    model = get_model(model_name, dataset, snn_timesteps)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    try:
+        model = get_model(model_name, dataset, snn_timesteps)
+        model.load_state_dict(checkpoint['model_state_dict'])
+    except Exception as e:
+        raise RuntimeError(f"Failed to create or load model {model_name} for dataset {dataset}: {e}")
     
     return model, checkpoint
