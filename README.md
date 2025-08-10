@@ -198,4 +198,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [OpenAI ChatGPT](https://openai.com/chatgpt) — for assistance in code debugging, design, and documentation
 - [Anthropic Claude](https://www.anthropic.com/index/claude) — for research support, code suggestions, and implementation guidance
 
-> ⚠️ Parts of this project were developed with assistance from AI tools (ChatGPT & Claude). All code was verified, tested, and curated manually.
+> Parts of this project were developed with assistance from AI tools (ChatGPT & Claude). All code was verified, tested, and curated manually.
