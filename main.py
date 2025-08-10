@@ -23,7 +23,7 @@ def run_simulation(args):
     """Run Flower simulation."""
     device = torch.device("cuda" if torch.cuda.is_available() and args.gpu else "cpu")
     print("-" * 60)
-    print(f"Starting Flower Federated Learning Simulation")
+    print("Starting Flower Federated Learning Simulation")
     print(f"Using device: {device}")
     print(f"Dataset: {args.dataset.upper()} |  Model: {args.model.upper()}")
     print(f"Strategy: {args.strategy.upper()}")
@@ -45,9 +45,8 @@ def run_simulation(args):
     # Create federated strategy
     strategy = get_federated_strategy(args.strategy, initial_parameters, args)
 
-    # Define client function for simulation
-    def create_client_fn(context):
-        cid = context.node_config["partition-id"]
+    # Define client function for simulation (expects cid: str)
+    def create_client_fn(cid: str):
         client = client_fn(str(cid), train_data, test_data, client_data_dict, args.model, args.dataset, args)
         return client
 
@@ -132,7 +131,7 @@ def main():
     args = parser.parse_args()
 
     # Strategy recommendation based on data distribution
-    original_strategy = args.strategy
+    # Keep args.strategy up to date; no need to store original separately
     if args.iid:
         if args.strategy == 'fedavg':
             print("Using FedAvg for IID data distribution")

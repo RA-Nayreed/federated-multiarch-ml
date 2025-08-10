@@ -15,8 +15,8 @@ import sys
 try:
     from utils import load_model
 except ImportError as e:
-    print(f"Error importing fed_learning module: {e}")
-    print("Make sure fed_learning.py is in the same directory or in your Python path")
+    print(f"Error importing utilities: {e}")
+    print("Make sure utils.py is available in the project directory or your PYTHONPATH")
     sys.exit(1)
 
 def preprocess_image(image_path, dataset):
@@ -204,9 +204,9 @@ def main():
             image_tensor = preprocess_image(args.image_path, dataset)
             predicted_class, confidence, probabilities = predict(model, image_tensor, model_name, dataset)
 
-            print(f"\n{'='*50}")
-            print(f"PREDICTION RESULTS")
-            print(f"{'='*50}")
+            print("\n" + '='*50)
+            print("PREDICTION RESULTS")
+            print('='*50)
             print(f"Image: {os.path.basename(args.image_path)}")
             print(f"Predicted class: {predicted_class} ({class_names[predicted_class]})")
             print(f"Confidence: {confidence:.4f}")
@@ -224,9 +224,9 @@ def main():
             results = batch_inference(model, args.image_folder, model_name, dataset)
             
             if results:
-                print(f"\n{'='*70}")
+                print("\n" + '='*70)
                 print(f"BATCH INFERENCE RESULTS ({len(results)} images)")
-                print(f"{'='*70}")
+                print('='*70)
                 
                 # Sort by confidence (highest first)
                 results.sort(key=lambda x: x['confidence'], reverse=True)
@@ -237,9 +237,9 @@ def main():
                 
                 # Summary statistics
                 confidences = [r['confidence'] for r in results]
-                print(f"\n{'='*70}")
-                print(f"SUMMARY STATISTICS")
-                print(f"{'='*70}")
+                print("\n" + '='*70)
+                print("SUMMARY STATISTICS")
+                print('='*70)
                 print(f"Total images processed: {len(results)}")
                 print(f"Average confidence: {np.mean(confidences):.4f}")
                 print(f"Min confidence: {np.min(confidences):.4f}")
@@ -248,7 +248,7 @@ def main():
                 # Class distribution
                 classes = [r['predicted_class'] for r in results]
                 unique_classes, counts = np.unique(classes, return_counts=True)
-                print(f"\nClass distribution:")
+                print("\nClass distribution:")
                 for class_id, count in zip(unique_classes, counts):
                     class_name = class_names[class_id] if class_id < len(class_names) else f'Class_{class_id}'
                     print(f"  {class_name:<12}: {count:3d} images ({count/len(results)*100:.1f}%)")

@@ -134,17 +134,20 @@ def distribute_data(train_data, num_clients: int, iid: bool = True):
         return distribute_non_iid(train_data, num_clients)
 
 def distribute_iid(train_data, num_clients: int):
-    """Distribute data in IID manner"""
+    """Distribute data in IID manner robustly across all clients."""
     num_items = len(train_data) // num_clients
-    client_data = {}
+    # Initialize every client with an empty set to avoid KeyError when data is scarce
+    client_data = {i: set() for i in range(num_clients)}
     all_idxs = list(range(len(train_data)))
     for i in range(num_clients):
         num_to_sample = min(num_items, len(all_idxs))
         if num_to_sample == 0:
-             break
+            # No more items to sample; continue so remaining clients stay with empty sets
+            continue
         sampled_idxs = np.random.choice(all_idxs, num_to_sample, replace=False)
-        client_data[i] = set(sampled_idxs)
+        client_data[i].update(sampled_idxs)
         all_idxs = list(set(all_idxs) - set(sampled_idxs))
+    # Distribute any leftover indices round-robin
     for i, idx in enumerate(all_idxs):
         client_id = i % num_clients
         client_data[client_id].add(idx)
