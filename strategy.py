@@ -1,10 +1,15 @@
-"""Flower Client and Strategy Implementations"""
+"""
+Flower Client and Strategy Implementations for Federated Learning.
+
+"""
+
 import flwr as fl
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
+from typing import Dict, List, Tuple, Optional, Any
 from models import get_model
 from utils import (get_parameters, set_parameters, weighted_average, create_lr_scheduler)
 
@@ -27,8 +32,27 @@ except ImportError:
         def __init__(self, eta=0.01, beta_1=0.9, beta_2=0.999, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
+
 class FlowerClient(fl.client.NumPyClient):
-    """Flower client implementing federated learning."""
+    """
+    Flower client implementing federated learning with local training and evaluation.
+    
+    This client handles:
+    - Local model training with various optimizers
+    - Model evaluation on local test data
+    - Parameter aggregation and communication with server
+    - Memory management and cleanup
+    
+    Args:
+        client_id (int): Unique identifier for this client
+        train_data: Training dataset
+        test_data: Test dataset for evaluation
+        client_indices: Indices of training data assigned to this client
+        model_name (str): Type of neural network model ('snn', 'cnn', 'mlp')
+        dataset (str): Dataset name ('mnist', 'cifar10')
+        args: Configuration arguments containing training parameters
+    """
+    
     def __init__(self, client_id: int, train_data, test_data, client_indices,
                  model_name: str, dataset: str, args):
         self.client_id = client_id
@@ -41,8 +65,8 @@ class FlowerClient(fl.client.NumPyClient):
         self.device = torch.device("cuda" if torch.cuda.is_available() and args.gpu else "cpu")
         self.net = get_model(model_name, dataset, args.snn_timesteps)
         self.net.to(self.device)
+        
         client_dataset = Subset(train_data, list(client_indices))
-        # Adjust batch size if dataset is too small
         effective_batch_size = min(args.local_bs, len(client_dataset))
         if effective_batch_size != args.local_bs:
             print(f"Client {client_id}: Reduced batch size from {args.local_bs} to {effective_batch_size} due to small dataset")
@@ -54,30 +78,56 @@ class FlowerClient(fl.client.NumPyClient):
         print(f"Client {client_id}: {len(client_indices)} samples on device {self.device}")
 
     def cleanup(self):
-        # Clean up DataLoaders first
+        """
+        Clean up resources to prevent memory leaks.
+        
+        This method:
+        - Removes DataLoaders
+        - Moves model to CPU and deletes it
+        - Forces garbage collection
+        - Clears GPU cache if using CUDA
+        """
         if hasattr(self, 'trainloader'):
             del self.trainloader
         if hasattr(self, 'testloader'):
             del self.testloader
         
-        # Clean up model and optimizer
         if hasattr(self, 'net'):
             self.net.cpu() 
             del self.net
         
-        # Force garbage collection and GPU cleanup
         import gc
         gc.collect()
         if self.device.type == 'cuda':
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
 
-    def get_parameters(self, config):
-        """Return current local model parameters."""
+    def get_parameters(self, config: Dict[str, Any]) -> List[np.ndarray]:
+        """
+        Return current local model parameters.
+        
+        Args:
+            config: Configuration dictionary (unused)
+            
+        Returns:
+            List of numpy arrays representing model parameters
+        """
         return get_parameters(self.net)
 
-    def fit(self, parameters, config):
-        """Train the model on the locally held training set."""
+    def fit(self, parameters: List[np.ndarray], config: Dict[str, Any]) -> Tuple[List[np.ndarray], int, Dict[str, float]]:
+        """
+        Train the model on the locally held training set.
+        
+        Args:
+            parameters: Global model parameters from server
+            config: Configuration dictionary containing training parameters
+            
+        Returns:
+            Tuple containing:
+            - Updated model parameters
+            - Number of training examples
+            - Training metrics (loss, accuracy)
+        """
         set_parameters(self.net, parameters)
         train_loss, train_accuracy = self.train(parameters)
         return (
@@ -86,18 +136,44 @@ class FlowerClient(fl.client.NumPyClient):
             {"train_loss": float(train_loss), "train_accuracy": float(train_accuracy)}
         )
 
-    def evaluate(self, parameters, config):
-        """Evaluate the model on the locally held test set."""
+    def evaluate(self, parameters: List[np.ndarray], config: Dict[str, Any]) -> Tuple[float, int, Dict[str, float]]:
+        """
+        Evaluate the model on the locally held test set.
+        
+        Args:
+            parameters: Model parameters to evaluate
+            config: Configuration dictionary (unused)
+            
+        Returns:
+            Tuple containing:
+            - Test loss
+            - Number of test examples
+            - Test metrics (accuracy)
+        """
         set_parameters(self.net, parameters)
         test_loss, test_accuracy = self.test()
         return float(test_loss), len(self.testloader.dataset), {"test_accuracy": float(test_accuracy)}
 
-    def train(self, global_parameters):
-        """Train the model locally."""
+    def train(self, global_parameters: List[np.ndarray]) -> Tuple[float, float]:
+        """
+        Train the model locally for the specified number of epochs.
+        
+        This method handles:
+        - Optimizer selection based on model type
+        - Learning rate scheduling
+        - FedProx proximal term calculation
+        - Gradient clipping
+        - Training metrics computation
+        
+        Args:
+            global_parameters: Global model parameters for FedProx proximal term
+            
+        Returns:
+            Tuple of (average training loss, training accuracy)
+        """
         self.net.train()
-        # Standardized optimizer configuration
+        
         if self.model_name == 'snn':
-            # SNNs typically train better with Adam
             optimizer = optim.Adam(
                 self.net.parameters(),
                 lr=self.args.lr,
@@ -106,7 +182,6 @@ class FlowerClient(fl.client.NumPyClient):
                 eps=1e-8
             )
         else:
-            # Traditional networks use SGD with momentum
             optimizer = optim.SGD(
                 self.net.parameters(),
                 lr=self.args.lr,
@@ -126,12 +201,13 @@ class FlowerClient(fl.client.NumPyClient):
         epoch_losses = []
         correct = 0
         total = 0
+        
         for epoch in range(self.args.local_ep):
             batch_losses = []
-            # Check if trainloader is empty
             if len(self.trainloader) == 0:
                 print(f"Client {self.client_id}: No batches to train on, skipping epoch {epoch}")
                 continue
+                
             for batch_idx, (data, targets) in enumerate(self.trainloader):
                 data, targets = data.to(self.device, non_blocking=True), targets.to(self.device, non_blocking=True)
                 optimizer.zero_grad()
@@ -156,17 +232,12 @@ class FlowerClient(fl.client.NumPyClient):
                     }
 
                     proximal_term = torch.tensor(0.0, device=self.device)
-
-                    # Iterate over learnable parameters of the local model
                     for name, local_param in self.net.named_parameters():
-                        # Ensure the parameter is trainable and exists in the global model
                         if local_param.requires_grad and name in global_params:
-                            # Add the squared L2 norm to the proximal term
                             proximal_term += torch.norm(local_param - global_params[name]) ** 2
                     
                     loss = loss + (self.args.fedprox_mu / 2.0) * proximal_term
                     
-                    # Clean up GPU memory by releasing global parameter tensors
                     for t in global_params.values():
                         del t
                     if self.device.type == 'cuda':
@@ -174,7 +245,6 @@ class FlowerClient(fl.client.NumPyClient):
 
                 loss.backward()
 
-                # Gradient clipping for all models with model-specific thresholds
                 if self.model_name == 'snn':
                     torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=1.0)
                 else:
@@ -186,7 +256,6 @@ class FlowerClient(fl.client.NumPyClient):
                     scheduler.step()
             
                 batch_losses.append(loss.item())
-                # Calculate accuracy
                 _, predicted = torch.max(outputs.data, 1)
                 total += targets.size(0)
                 correct += (predicted == targets).sum().item()
@@ -205,13 +274,19 @@ class FlowerClient(fl.client.NumPyClient):
         accuracy = 100.0 * correct / total if total > 0 else 0.0
         return avg_loss, accuracy
 
-    def test(self):
-        """Test the model locally."""
+    def test(self) -> Tuple[float, float]:
+        """
+        Test the model on the local test dataset.
+        
+        Returns:
+            Tuple of (average test loss, test accuracy)
+        """
         self.net.eval()
         criterion = nn.CrossEntropyLoss()
         correct = 0
         total = 0
         test_loss = 0
+        
         with torch.no_grad():
             for data, targets in self.testloader:
                 data, targets = data.to(self.device), targets.to(self.device)
@@ -234,29 +309,47 @@ class FlowerClient(fl.client.NumPyClient):
         return avg_loss, accuracy
 
 
-def client_fn(cid: str, train_data, test_data, client_data_dict, model_name: str, dataset: str, args):
-    """Create a Flower client with proper cleanup."""
+def client_fn(cid: str, train_data, test_data, client_data_dict, model_name: str, dataset: str, args) -> FlowerClient:
+    """
+    Create a Flower client with proper cleanup handling.
+    
+    This factory function creates a FlowerClient instance and ensures proper
+    resource cleanup when the client is no longer needed.
+    
+    Args:
+        cid: Client ID as string
+        train_data: Training dataset
+        test_data: Test dataset
+        client_data_dict: Dictionary mapping client IDs to data indices
+        model_name: Type of neural network model
+        dataset: Dataset name
+        args: Configuration arguments
+        
+    Returns:
+        FlowerClient: Configured client instance
+        
+    Raises:
+        ValueError: If client has no assigned data or insufficient data
+        Exception: If client creation fails
+    """
     client_id = int(cid)
     client_indices = client_data_dict.get(client_id, set())
     if not client_indices:
         raise ValueError(f"Client {client_id} has no assigned data. Check data distribution.")
 
-    # Add validation for minimum data
-    min_samples = max(1, args.local_bs // 2)  # At least half a batch
+    min_samples = max(1, args.local_bs // 2)
     if len(client_indices) < min_samples:
         print(f"Warning: Client {client_id} has only {len(client_indices)} samples (minimum recommended: {min_samples})")
 
     try:
         client = FlowerClient(client_id, train_data, test_data, client_indices, model_name, dataset, args)
         
-        # Create a proxy that ensures cleanup
         def cleanup_proxy():
             if hasattr(client, 'cleanup'):
                 client.cleanup()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         
-        # Register cleanup with Python's garbage collector
         import weakref
         weakref.finalize(client, cleanup_proxy)
         
@@ -267,16 +360,35 @@ def client_fn(cid: str, train_data, test_data, client_data_dict, model_name: str
             torch.cuda.empty_cache()
         raise
 
-def get_federated_strategy(strategy_name: str, initial_parameters, args):
-    """Factory function to create different federated learning strategies"""
-    def fit_config(server_round: int):
+
+def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarray], args) -> fl.server.strategy.Strategy:
+    """
+    Factory function to create different federated learning strategies.
+    
+    This function creates and configures various federated learning strategies
+    with appropriate hyperparameters and configuration functions.
+    
+    Args:
+        strategy_name: Name of the strategy to create
+        initial_parameters: Initial model parameters
+        args: Configuration arguments containing strategy parameters
+        
+    Returns:
+        Configured federated learning strategy
+        
+    Raises:
+        ValueError: If strategy name is not supported
+    """
+    def fit_config(server_round: int) -> Dict[str, Any]:
+        """Configuration function for fit rounds."""
         config = {
             "server_round": server_round,
             "local_epochs": args.local_ep,
         }
         return config
 
-    def evaluate_config(server_round: int):
+    def evaluate_config(server_round: int) -> Dict[str, Any]:
+        """Configuration function for evaluate rounds."""
         return {"server_round": server_round}
 
     base_config = {
@@ -293,18 +405,32 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
     }
 
     class SaveFinalModelMixin:
-        """Mixin class to save the final aggregated parameters."""
+        """
+        Mixin class to save the final aggregated parameters.
+        
+        This mixin ensures that the final model parameters are preserved
+        after the federated learning process completes.
+        """
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.final_parameters = None
 
-        def aggregate_fit(self, server_round, results, failures):
-            """Aggregate results and save the final parameters."""
-            # Call the original aggregate_fit from the base strategy (e.g., FedAvg, FedProx)
+        def aggregate_fit(self, server_round: int, results: List[fl.server.client_proxy.ClientProxy], 
+                         failures: List[fl.server.client_proxy.ClientProxy]) -> Tuple[Optional[fl.common.Parameters], Dict[str, Any]]:
+            """
+            Aggregate results and save the final parameters.
+            
+            Args:
+                server_round: Current server round
+                results: List of successful client results
+                failures: List of failed client results
+                
+            Returns:
+                Tuple of aggregated parameters and metrics
+            """
             aggregated_parameters, aggregated_metrics = super().aggregate_fit(
                 server_round, results, failures
             )
-            # Save the aggregated parameters
             if aggregated_parameters is not None:
                 self.final_parameters = aggregated_parameters
             
@@ -350,8 +476,26 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
         return FedAdamWithSave(eta=0.01, beta_1=0.9, beta_2=0.999, tau=1e-9, **base_config)
 
     elif strategy_name == "feddyn":
-
         class SaveModelFedDyn(fl.server.strategy.Strategy):
+            """
+            FedDyn strategy implementation with final model saving.
+            
+            FedDyn (Federated Dynamic regularization) adds a dynamic regularization
+            term to prevent client drift in federated learning.
+            
+            Args:
+                fraction_fit: Fraction of clients to sample for training
+                fraction_evaluate: Fraction of clients to sample for evaluation
+                min_fit_clients: Minimum number of clients for training
+                min_evaluate_clients: Minimum number of clients for evaluation
+                min_available_clients: Minimum number of available clients
+                initial_parameters: Initial model parameters
+                on_fit_config_fn: Function to configure fit rounds
+                on_evaluate_config_fn: Function to configure evaluate rounds
+                fit_metrics_aggregation_fn: Function to aggregate fit metrics
+                evaluate_metrics_aggregation_fn: Function to aggregate evaluate metrics
+                alpha: FedDyn regularization parameter
+            """
             def __init__(self, fraction_fit=1.0, fraction_evaluate=1.0, min_fit_clients=2,
                          min_evaluate_clients=2, min_available_clients=2, initial_parameters=None,
                          on_fit_config_fn=None, on_evaluate_config_fn=None,
@@ -379,10 +523,13 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
                 self.alpha = alpha
                 self.final_parameters = None
 
-            def initialize_parameters(self, client_manager):
+            def initialize_parameters(self, client_manager) -> fl.common.Parameters:
+                """Initialize model parameters."""
                 return self.initial_parameters
 
-            def configure_fit(self, server_round, parameters, client_manager):
+            def configure_fit(self, server_round: int, parameters: fl.common.Parameters, 
+                            client_manager) -> List[Tuple[fl.server.client_proxy.ClientProxy, fl.common.FitIns]]:
+                """Configure the next round of training."""
                 sample_size, min_num_clients = self.num_fit_clients(client_manager.num_available())
                 clients = client_manager.sample(num_clients=sample_size, min_num_clients=min_num_clients)
                 config = {}
@@ -391,7 +538,16 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
                 config["alpha"] = self.alpha
                 return [(client, fl.common.FitIns(parameters, config)) for client in clients]
 
-            def aggregate_fit(self, server_round, results, failures):
+            def aggregate_fit(self, server_round: int, results: List[fl.server.client_proxy.ClientProxy], 
+                            failures: List[fl.server.client_proxy.ClientProxy]) -> Tuple[Optional[fl.common.Parameters], Dict[str, Any]]:
+                """
+                Aggregate fit results using FedDyn algorithm.
+                
+                This method implements the FedDyn aggregation which includes:
+                1. Computing average client parameters
+                2. Updating the dynamic regularization term h
+                3. Computing new server state with regularization
+                """
                 if not results:
                     return None, {}
                 weights_results = [
@@ -433,7 +589,9 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
                     metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
                 return aggregated_parameters, metrics_aggregated
 
-            def configure_evaluate(self, server_round, parameters, client_manager):
+            def configure_evaluate(self, server_round: int, parameters: fl.common.Parameters, 
+                                 client_manager) -> List[Tuple[fl.server.client_proxy.ClientProxy, fl.common.EvaluateIns]]:
+                """Configure the next round of evaluation."""
                 if self.fraction_evaluate == 0.0:
                     return []
                 sample_size, min_num_clients = self.num_evaluate_clients(client_manager.num_available())
@@ -443,7 +601,9 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
                     config = self.on_evaluate_config_fn(server_round)
                 return [(client, fl.common.EvaluateIns(parameters, config)) for client in clients]
 
-            def aggregate_evaluate(self, server_round, results, failures):
+            def aggregate_evaluate(self, server_round: int, results: List[fl.server.client_proxy.ClientProxy], 
+                                 failures: List[fl.server.client_proxy.ClientProxy]) -> Tuple[Optional[fl.common.Parameters], Dict[str, Any]]:
+                """Aggregate evaluation results."""
                 if not results:
                     return None, {}
                 metrics_aggregated = {}
@@ -452,14 +612,17 @@ def get_federated_strategy(strategy_name: str, initial_parameters, args):
                     metrics_aggregated = self.evaluate_metrics_aggregation_fn(eval_metrics)
                 return None, metrics_aggregated
 
-            def evaluate(self, server_round, parameters):
+            def evaluate(self, server_round: int, parameters: fl.common.Parameters) -> Optional[Tuple[float, Dict[str, Any]]]:
+                """Evaluate the current global model."""
                 return None
 
-            def num_fit_clients(self, num_available_clients):
+            def num_fit_clients(self, num_available_clients: int) -> Tuple[int, int]:
+                """Determine number of clients for training."""
                 num_clients = int(num_available_clients * self.fraction_fit)
                 return max(num_clients, self.min_fit_clients), self.min_fit_clients
 
-            def num_evaluate_clients(self, num_available_clients):
+            def num_evaluate_clients(self, num_available_clients: int) -> Tuple[int, int]:
+                """Determine number of clients for evaluation."""
                 num_clients = int(num_available_clients * self.fraction_evaluate)
                 return max(num_clients, self.min_evaluate_clients), self.min_evaluate_clients
 

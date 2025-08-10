@@ -1,5 +1,10 @@
-"""Fixed Flower-based Federated Learning Implementation for MNIST and CIFAR-10
-Implements various strategies using the Flower framework with support for SNN, CNN, and MLP models
+"""
+Flower-based Federated Learning Implementation for MNIST and CIFAR-10.
+
+This module implements federated learning using the Flower framework with support
+for various neural network architectures (SNN, CNN, MLP) and federated learning
+strategies (FedAvg, FedProx, FedAdagrad, FedAdam, FedDyn).
+
 """
 
 import flwr as fl
@@ -7,6 +12,7 @@ import torch
 import numpy as np
 import argparse
 import random
+from typing import Optional
 
 # Import from modules
 from models import get_model
@@ -19,9 +25,21 @@ torch.manual_seed(42)
 np.random.seed(42)
 random.seed(42)
 
-def run_simulation(args):
-    """Run Flower simulation."""
+
+def run_simulation(args: argparse.Namespace) -> Optional[fl.server.history.History]:
+    """
+    Run Flower federated learning simulation.
+    
+    This function orchestrates the complete federated learning process:
+    1. Data loading and distribution to clients
+    2. Model initialization and parameter setup
+    3. Strategy configuration and client resource allocation
+    4. Simulation execution with Flower
+    5. Model saving and result reporting
+
+    """
     device = torch.device("cuda" if torch.cuda.is_available() and args.gpu else "cpu")
+    
     print("-" * 60)
     print("Starting Flower Federated Learning Simulation")
     print(f"Using device: {device}")
@@ -45,9 +63,11 @@ def run_simulation(args):
     # Create federated strategy
     strategy = get_federated_strategy(args.strategy, initial_parameters, args)
 
-    # Define client function for simulation (expects cid: str)
+    # Define client function for simulation
     def create_client_fn(cid: str):
-        client = client_fn(str(cid), train_data, test_data, client_data_dict, args.model, args.dataset, args)
+        """Create a client instance for the given client ID."""
+        client = client_fn(str(cid), train_data, test_data, client_data_dict, 
+                          args.model, args.dataset, args)
         return client
 
     # Determine client resources
@@ -55,20 +75,16 @@ def run_simulation(args):
     if args.gpu and torch.cuda.is_available():
         available_gpus = torch.cuda.device_count()
         if available_gpus > 0:
-            # More intelligent GPU allocation
             if args.num_users <= available_gpus:
-                # Each client gets a full GPU if possible
                 gpus_per_client = 1.0
             elif args.num_users <= available_gpus * 4:
-                # Share GPUs among clients
                 gpus_per_client = max(0.25, 1.0 / args.num_users)
             else:
-                # Many clients, minimal GPU allocation
                 gpus_per_client = max(0.1, available_gpus / args.num_users)
 
             client_resources["num_gpus"] = gpus_per_client
-            print(f"Assigned {gpus_per_client} GPU(s) per client ({available_gpus} total GPUs, {args.num_users} clients)")
-
+            print(f"Assigned {gpus_per_client} GPU(s) per client "
+                  f"({available_gpus} total GPUs, {args.num_users} clients)")
 
     # Start simulation
     history = fl.simulation.start_simulation(
@@ -77,7 +93,7 @@ def run_simulation(args):
         config=fl.server.ServerConfig(num_rounds=args.epochs),
         strategy=strategy,
         client_resources=client_resources,
-        ray_init_args={"ignore_reinit_error": True, "include_dashboard": False}, # Disable dashboard for simpler logs
+        ray_init_args={"ignore_reinit_error": True, "include_dashboard": False},
     )
 
     # Get final model parameters from the strategy
@@ -89,9 +105,11 @@ def run_simulation(args):
             set_parameters(final_model, final_parameters)
             print("Successfully retrieved final model parameters from federated training.")
         except Exception as e:
-            print(f"Warning: Could not set final model parameters: {e}. Saving initial model state.")
+            print(f"Warning: Could not set final model parameters: {e}. "
+                  f"Saving initial model state.")
     else:
-        print("Warning: Strategy did not provide final model parameters. Saving initial model state.")
+        print("Warning: Strategy did not provide final model parameters. "
+              "Saving initial model state.")
 
     # Save the model
     save_model(final_model, args.model, args.dataset, args.strategy, args)
@@ -99,45 +117,76 @@ def run_simulation(args):
 
 
 def main():
+    """
+    Main entry point for the federated learning application.
+    
+    This function:
+    1. Parses command line arguments
+    2. Validates and adjusts configuration based on model/dataset
+    3. Provides strategy recommendations for data distributions
+    4. Executes the federated learning simulation
+    5. Reports final results and metrics
+    """
     parser = argparse.ArgumentParser(description='Flower Federated Learning with SNN/CNN/MLP')
+    
     # Federated learning parameters
-    parser.add_argument('--epochs', type=int, default=10, help="number of rounds of training")
-    parser.add_argument('--num_users', type=int, default=10, help="number of users: K")
-    parser.add_argument('--frac', type=float, default=1.0, help='the fraction of clients: C')
-    parser.add_argument('--local_ep', type=int, default=5, help="the number of local epochs: E")
-    parser.add_argument('--local_bs', type=int, default=32, help="local batch size: B")
-    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+    parser.add_argument('--epochs', type=int, default=10, 
+                       help="Number of federated learning rounds")
+    parser.add_argument('--num_users', type=int, default=10, 
+                       help="Number of clients participating in training")
+    parser.add_argument('--frac', type=float, default=1.0, 
+                       help='Fraction of clients to sample per round')
+    parser.add_argument('--local_ep', type=int, default=5, 
+                       help="Number of local training epochs per client")
+    parser.add_argument('--local_bs', type=int, default=32, 
+                       help="Local batch size for client training")
+    parser.add_argument('--lr', type=float, default=0.01, 
+                       help='Learning rate for client training')
+    
     # Learning Rate Scheduler Arguments
-    parser.add_argument('--use_lr_scheduler', action='store_true', help='Enable learning rate scheduler (warmup + cosine decay)')
-    parser.add_argument('--warmup_epochs', type=float, default=5.0, help='Number of warmup epochs (can be fractional)')
-    parser.add_argument('--lr_min', type=float, default=1e-6, help='Minimum learning rate for cosine decay')
-    parser.add_argument('--auto_switch_fedprox', action='store_true', help='Auto-switch to FedProx for non-IID data')
+    parser.add_argument('--use_lr_scheduler', action='store_true', 
+                       help='Enable learning rate scheduler (warmup + cosine decay)')
+    parser.add_argument('--warmup_epochs', type=float, default=5.0, 
+                       help='Number of warmup epochs (can be fractional)')
+    parser.add_argument('--lr_min', type=float, default=1e-6, 
+                       help='Minimum learning rate for cosine decay')
+    parser.add_argument('--auto_switch_fedprox', action='store_true', 
+                       help='Auto-switch to FedProx for non-IID data')
     
     # Model and dataset parameters
-    parser.add_argument('--model', type=str, default='snn', choices=['mlp', 'cnn', 'snn'], help="model")
-    parser.add_argument('--dataset', type=str, default='mnist', choices=['mnist', 'cifar10'], help="dataset")
-    parser.add_argument('--iid', action='store_true', help='whether i.i.d or not')
-    parser.add_argument('--gpu', action='store_true', help='use gpu')
+    parser.add_argument('--model', type=str, default='snn', 
+                       choices=['mlp', 'cnn', 'snn'], help="Neural network architecture")
+    parser.add_argument('--dataset', type=str, default='mnist', 
+                       choices=['mnist', 'cifar10'], help="Dataset for training")
+    parser.add_argument('--iid', action='store_true', 
+                       help='Use IID data distribution (default: Non-IID)')
+    parser.add_argument('--gpu', action='store_true', 
+                       help='Use GPU acceleration if available')
+    
     # SNN specific parameters
-    parser.add_argument('--snn_timesteps', type=int, default=25, help='number of time steps for SNN')
+    parser.add_argument('--snn_timesteps', type=int, default=25, 
+                       help='Number of time steps for SNN temporal dynamics')
+    
     # Strategy parameter
     parser.add_argument('--strategy', type=str, default='fedavg',
                        choices=['fedavg', 'fedprox', 'fedadagrad', 'fedadam', 'feddyn'],
-                       help='federated learning strategy')
-    #Strategy-specific hyperparameters
-    parser.add_argument('--fedprox_mu', type=float, default=0.1, help='FedProx proximal term coefficient')
-    parser.add_argument('--feddyn_alpha', type=float, default=0.01, help='FedDyn alpha coefficient')
+                       help='Federated learning strategy')
+    
+    # Strategy-specific hyperparameters
+    parser.add_argument('--fedprox_mu', type=float, default=0.1, 
+                       help='FedProx proximal term coefficient')
+    parser.add_argument('--feddyn_alpha', type=float, default=0.01, 
+                       help='FedDyn alpha coefficient')
     
     args = parser.parse_args()
 
     # Strategy recommendation based on data distribution
-    # Keep args.strategy up to date; no need to store original separately
     if args.iid:
         if args.strategy == 'fedavg':
             print("Using FedAvg for IID data distribution")
         else:
             print(f"Note: {args.strategy.upper()} may be suboptimal for IID data. Consider FedAvg.")
-    else: # Non-IID
+    else:  # Non-IID
         recommended_strategies = ['fedprox', 'feddyn']
         if args.strategy == 'fedavg':
             print("Warning: FedAvg may be suboptimal for non-IID data.")
@@ -150,10 +199,10 @@ def main():
         elif args.strategy in recommended_strategies:
             print(f"Using {args.strategy.upper()} for non-IID data distribution")
         else:
-             print(f"Using {args.strategy.upper()} for non-IID data distribution (ensure it's suitable).")
+             print(f"Using {args.strategy.upper()} for non-IID data distribution "
+                   f"(ensure it's suitable).")
 
-
-    # Adjust learning rates based on model type *only if default LR is used*
+    # Adjust learning rates based on model type if default LR is used
     default_lr = 0.01 
     if args.lr == default_lr:  
         if args.model == 'snn':
@@ -177,18 +226,15 @@ def main():
 
         # Print final results if available
         if history and hasattr(history, 'metrics_centralized') and history.metrics_centralized:
-            # Get the last recorded metric for each type
             final_metrics = {}
             for metric_name, metric_values in history.metrics_centralized.items():
                 if metric_values:
                     final_metrics[metric_name] = metric_values[-1]
 
             if 'test_accuracy' in final_metrics:
-                # Metric value is a tuple (round_num, value)
                 print(f"Final Centralized Test Accuracy: {final_metrics['test_accuracy'][1]:.2f}%")
             if 'train_accuracy' in final_metrics:
                 print(f"Final Centralized Training Accuracy: {final_metrics['train_accuracy'][1]:.2f}%")
-            # Add other metrics as needed (loss etc.)
         elif history:
             print("Simulation finished, but no centralized metrics were recorded.")
         else:
