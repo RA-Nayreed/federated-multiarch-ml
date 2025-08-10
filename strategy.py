@@ -106,11 +106,6 @@ class FlowerClient(fl.client.NumPyClient):
         """
         Return current local model parameters.
         
-        Args:
-            config: Configuration dictionary (unused)
-            
-        Returns:
-            List of numpy arrays representing model parameters
         """
         return get_parameters(self.net)
 
@@ -140,15 +135,6 @@ class FlowerClient(fl.client.NumPyClient):
         """
         Evaluate the model on the locally held test set.
         
-        Args:
-            parameters: Model parameters to evaluate
-            config: Configuration dictionary (unused)
-            
-        Returns:
-            Tuple containing:
-            - Test loss
-            - Number of test examples
-            - Test metrics (accuracy)
         """
         set_parameters(self.net, parameters)
         test_loss, test_accuracy = self.test()
@@ -164,12 +150,7 @@ class FlowerClient(fl.client.NumPyClient):
         - FedProx proximal term calculation
         - Gradient clipping
         - Training metrics computation
-        
-        Args:
-            global_parameters: Global model parameters for FedProx proximal term
-            
-        Returns:
-            Tuple of (average training loss, training accuracy)
+
         """
         self.net.train()
         
@@ -282,9 +263,7 @@ class FlowerClient(fl.client.NumPyClient):
     def test(self) -> Tuple[float, float]:
         """
         Test the model on the local test dataset.
-        
-        Returns:
-            Tuple of (average test loss, test accuracy)
+
         """
         self.net.eval()
         criterion = nn.CrossEntropyLoss()
@@ -332,13 +311,7 @@ def client_fn(cid: str, train_data, test_data, client_data_dict, model_name: str
         model_name: Type of neural network model
         dataset: Dataset name
         args: Configuration arguments
-        
-    Returns:
-        FlowerClient: Configured client instance
-        
-    Raises:
-        ValueError: If client has no assigned data or insufficient data
-        Exception: If client creation fails
+
     """
     client_id = int(cid)
     client_indices = client_data_dict.get(client_id, set())
@@ -380,12 +353,7 @@ def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarr
         strategy_name: Name of the strategy to create
         initial_parameters: Initial model parameters
         args: Configuration arguments containing strategy parameters
-        
-    Returns:
-        Configured federated learning strategy
-        
-    Raises:
-        ValueError: If strategy name is not supported
+
     """
     def fit_config(server_round: int) -> Dict[str, Any]:
         """Configuration function for fit rounds."""
@@ -427,14 +395,7 @@ def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarr
                          failures: List[fl.server.client_proxy.ClientProxy]) -> Tuple[Optional[fl.common.Parameters], Dict[str, Any]]:
             """
             Aggregate results and save the final parameters.
-            
-            Args:
-                server_round: Current server round
-                results: List of successful client results
-                failures: List of failed client results
-                
-            Returns:
-                Tuple of aggregated parameters and metrics
+
             """
             aggregated_parameters, aggregated_metrics = super().aggregate_fit(
                 server_round, results, failures
