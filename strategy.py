@@ -10,28 +10,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
 from typing import Dict, List, Tuple, Optional, Any
+from flwr.server.strategy import FedProx, FedAdagrad, FedAdam
 from models import get_model
 from utils import (get_parameters, set_parameters, weighted_average, create_lr_scheduler)
-
-# Safe imports for advanced strategies
-try:
-    from flwr.server.strategy import FedProx, FedAdagrad, FedAdam
-    ADVANCED_STRATEGIES_AVAILABLE = True
-except ImportError:
-    print("Warning: Advanced strategies not available. Install flwr[strategies] for FedProx, FedAdagrad, FedAdam")
-    ADVANCED_STRATEGIES_AVAILABLE = False
-    # Create dummy classes to prevent import errors
-    class FedProx(fl.server.strategy.FedAvg):
-        def __init__(self, proximal_mu=1.0, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.proximal_mu = proximal_mu
-    class FedAdagrad(fl.server.strategy.FedAvg):
-        def __init__(self, eta=0.01, eta_l=0.01, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-    class FedAdam(fl.server.strategy.FedAvg):
-        def __init__(self, eta=0.01, beta_1=0.9, beta_2=0.999, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-
 
 class FlowerClient(fl.client.NumPyClient):
     """
@@ -411,35 +392,17 @@ def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarr
         return FedAvgWithSave(**base_config)
         
     elif strategy_name == "fedprox":
-        if not ADVANCED_STRATEGIES_AVAILABLE:
-            print("Falling back to FedAvg as FedProx is not available.")
-            class FedAvgWithSave(SaveFinalModelMixin, fl.server.strategy.FedAvg):
-                pass
-            return FedAvgWithSave(**base_config)
-        
         class FedProxWithSave(SaveFinalModelMixin, FedProx):
             pass
         mu = getattr(args, 'fedprox_mu', 0.1)
         return FedProxWithSave(proximal_mu=mu, **base_config)
 
     elif strategy_name == "fedadagrad":
-        if not ADVANCED_STRATEGIES_AVAILABLE:
-            print("Falling back to FedAvg as FedAdagrad is not available.")
-            class FedAvgWithSave(SaveFinalModelMixin, fl.server.strategy.FedAvg):
-                pass
-            return FedAvgWithSave(**base_config)
-
         class FedAdagradWithSave(SaveFinalModelMixin, FedAdagrad):
             pass
         return FedAdagradWithSave(eta=0.01, eta_l=0.01, tau=1e-9, **base_config)
 
     elif strategy_name == "fedadam":
-        if not ADVANCED_STRATEGIES_AVAILABLE:
-            print("Falling back to FedAvg as FedAdam is not available.")
-            class FedAvgWithSave(SaveFinalModelMixin, fl.server.strategy.FedAvg):
-                pass
-            return FedAvgWithSave(**base_config)
-
         class FedAdamWithSave(SaveFinalModelMixin, FedAdam):
             pass
         return FedAdamWithSave(eta=0.01, beta_1=0.9, beta_2=0.999, tau=1e-9, **base_config)
