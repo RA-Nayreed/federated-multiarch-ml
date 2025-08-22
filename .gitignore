@@ -220,3 +220,8 @@ __marimo__/
 *.tflite
 *.weights
 model_*/
+
+# Benchmark results
+/benchmark_results/
+*.csv
+*.json

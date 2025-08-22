@@ -5,7 +5,7 @@ A Flower-based federated learning framework supporting MLP, CNN and Spiking Neur
 ## Features
 
 - **Multiple Model Types**: Multi-Layer Perceptron (MLP), Convolutional Neural Network (CNN), and Spiking Neural Network (SNN)
-- **Federated Strategies**: FedAvg, FedProx, FedAdagrad, FedAdam, FedDyn
+- **Federated Strategies**: FedAvg, FedProx, FedAdagrad, FedAdam
 - **Datasets**: MNIST and CIFAR-10 support
 - **Distribution Options**: Both IID and Non-IID data distribution
 - **Easy Training**: Interactive launcher with predefined configurations
@@ -82,7 +82,7 @@ python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pt
 | `fedprox` | Non-IID data | Proximal regularization for heterogeneous clients |
 | `fedadagrad` | Adaptive learning | Adaptive gradient-based optimization |
 | `fedadam` | Complex optimization | Adam-based federated learning |
-| `feddyn` | Non-IID data | Dynamic regularization for improved convergence |
+
 
 ## Command Line Arguments
 
@@ -97,7 +97,7 @@ python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pt
 | `--lr` | 0.01 | Learning rate (auto-adjusted per model) |
 | `--model` | snn | Model type: mlp, cnn, snn |
 | `--dataset` | mnist | Dataset: mnist, cifar10 |
-| `--strategy` | fedavg | FL strategy: fedavg, fedprox, fedadagrad, fedadam, feddyn |
+| `--strategy` | fedavg | FL strategy: fedavg, fedprox, fedadagrad, fedadam |
 | `--iid` | False | Use IID data distribution |
 | `--gpu` | False | Enable GPU acceleration |
 
@@ -106,7 +106,7 @@ python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pt
 |----------|---------|-------------|
 | `--snn_timesteps` | 25 | SNN simulation time steps |
 | `--fedprox_mu` | 0.1 | FedProx proximal term coefficient |
-| `--feddyn_alpha` | 0.01 | FedDyn regularization coefficient |
+
 | `--use_lr_scheduler` | False | Enable learning rate scheduling |
 | `--warmup_epochs` | 5.0 | Warmup epochs for LR scheduler |
 | `--auto_switch_fedprox` | False | Auto-switch to FedProx for non-IID data |

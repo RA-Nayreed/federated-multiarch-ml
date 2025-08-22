@@ -3,7 +3,7 @@ Flower-based Federated Learning Implementation for MNIST and CIFAR-10.
 
 This module implements federated learning using the Flower framework with support
 for various neural network architectures (SNN, CNN, MLP) and federated learning
-strategies (FedAvg, FedProx, FedAdagrad, FedAdam, FedDyn).
+strategies (FedAvg, FedProx, FedAdagrad, FedAdam).
 
 """
 
@@ -164,14 +164,13 @@ def main():
     
     # Strategy parameter
     parser.add_argument('--strategy', type=str, default='fedavg',
-                       choices=['fedavg', 'fedprox', 'fedadagrad', 'fedadam', 'feddyn'],
+                       choices=['fedavg', 'fedprox', 'fedadagrad', 'fedadam'],
                        help='Federated learning strategy')
     
     # Strategy-specific hyperparameters
     parser.add_argument('--fedprox_mu', type=float, default=0.1, 
                        help='FedProx proximal term coefficient')
-    parser.add_argument('--feddyn_alpha', type=float, default=0.01, 
-                       help='FedDyn alpha coefficient')
+
     
     args = parser.parse_args()
     
@@ -182,8 +181,7 @@ def main():
     # Validate strategy parameters
     if args.fedprox_mu < 0:
         raise ValueError("FedProx mu must be non-negative")
-    if args.feddyn_alpha <= 0:
-        raise ValueError("FedDyn alpha must be positive")
+
 
     # Strategy recommendation based on data distribution
     if args.iid:
@@ -192,7 +190,7 @@ def main():
         else:
             print(f"Note: {args.strategy.upper()} may be suboptimal for IID data. Consider FedAvg.")
     else:  # Non-IID
-        recommended_strategies = ['fedprox', 'feddyn']
+        recommended_strategies = ['fedprox']
         if args.strategy == 'fedavg':
             print("Warning: FedAvg may be suboptimal for non-IID data.")
             print(f"Consider using: {', '.join(recommended_strategies)} for better performance.")

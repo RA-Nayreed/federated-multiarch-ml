@@ -10,9 +10,10 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
 from typing import Dict, List, Tuple, Optional, Any
-from flwr.server.strategy import FedProx, FedAdagrad, FedAdam
 from models import get_model
+from flwr.server.strategy import FedProx, FedAdagrad, FedAdam
 from utils import (get_parameters, set_parameters, weighted_average, create_lr_scheduler)
+
 
 class FlowerClient(fl.client.NumPyClient):
     """
@@ -406,160 +407,6 @@ def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarr
         class FedAdamWithSave(SaveFinalModelMixin, FedAdam):
             pass
         return FedAdamWithSave(eta=0.01, beta_1=0.9, beta_2=0.999, tau=1e-9, **base_config)
-
-    elif strategy_name == "feddyn":
-        class SaveModelFedDyn(fl.server.strategy.Strategy):
-            """
-            FedDyn strategy implementation with final model saving.
-            
-            FedDyn (Federated Dynamic regularization) adds a dynamic regularization
-            term to prevent client drift in federated learning.
-            
-            Args:
-                fraction_fit: Fraction of clients to sample for training
-                fraction_evaluate: Fraction of clients to sample for evaluation
-                min_fit_clients: Minimum number of clients for training
-                min_evaluate_clients: Minimum number of clients for evaluation
-                min_available_clients: Minimum number of available clients
-                initial_parameters: Initial model parameters
-                on_fit_config_fn: Function to configure fit rounds
-                on_evaluate_config_fn: Function to configure evaluate rounds
-                fit_metrics_aggregation_fn: Function to aggregate fit metrics
-                evaluate_metrics_aggregation_fn: Function to aggregate evaluate metrics
-                alpha: FedDyn regularization parameter
-            """
-            def __init__(self, fraction_fit=1.0, fraction_evaluate=1.0, min_fit_clients=2,
-                         min_evaluate_clients=2, min_available_clients=2, initial_parameters=None,
-                         on_fit_config_fn=None, on_evaluate_config_fn=None,
-                         fit_metrics_aggregation_fn=None, evaluate_metrics_aggregation_fn=None,
-                         alpha=0.01):
-                super().__init__()
-                self.fraction_fit = fraction_fit
-                self.fraction_evaluate = fraction_evaluate
-                self.min_fit_clients = min_fit_clients
-                self.min_evaluate_clients = min_evaluate_clients
-                self.min_available_clients = min_available_clients
-                
-                if initial_parameters is None:
-                    raise ValueError("FedDyn requires initial_parameters to be provided")
-                self.initial_parameters = initial_parameters
-                self.server_state = fl.common.parameters_to_ndarrays(initial_parameters)
-                self.h = [np.zeros_like(param) for param in self.server_state]
-                
-                self.on_fit_config_fn = on_fit_config_fn
-                self.on_evaluate_config_fn = on_evaluate_config_fn
-                self.fit_metrics_aggregation_fn = fit_metrics_aggregation_fn
-                self.evaluate_metrics_aggregation_fn = evaluate_metrics_aggregation_fn
-                if alpha <= 0:
-                    raise ValueError(f"FedDyn requires alpha > 0, got {alpha}")
-                self.alpha = alpha
-                self.final_parameters = None
-
-            def initialize_parameters(self, client_manager) -> fl.common.Parameters:
-                """Initialize model parameters."""
-                return self.initial_parameters
-
-            def configure_fit(self, server_round: int, parameters: fl.common.Parameters, 
-                            client_manager) -> List[Tuple[fl.server.client_proxy.ClientProxy, fl.common.FitIns]]:
-                """Configure the next round of training."""
-                sample_size, min_num_clients = self.num_fit_clients(client_manager.num_available())
-                clients = client_manager.sample(num_clients=sample_size, min_num_clients=min_num_clients)
-                config = {}
-                if self.on_fit_config_fn is not None:
-                    config = self.on_fit_config_fn(server_round)
-                config["alpha"] = self.alpha
-                return [(client, fl.common.FitIns(parameters, config)) for client in clients]
-
-            def aggregate_fit(self, server_round: int, results: List[fl.server.client_proxy.ClientProxy], 
-                            failures: List[fl.server.client_proxy.ClientProxy]) -> Tuple[Optional[fl.common.Parameters], Dict[str, Any]]:
-                """
-                Aggregate fit results using FedDyn algorithm.
-                
-                This method implements the FedDyn aggregation which includes:
-                1. Computing average client parameters
-                2. Updating the dynamic regularization term h
-                3. Computing new server state with regularization
-                """
-                if not results:
-                    return None, {}
-                weights_results = [
-                    (fl.common.parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
-                    for _, fit_res in results
-                ]
-                if self.server_state is None:
-                    self.server_state = fl.common.parameters_to_ndarrays(self.initial_parameters)
-                    self.h = [np.zeros_like(param) for param in self.server_state]
-
-                total_examples = sum([num_examples for _, num_examples in weights_results])
-                if total_examples == 0:
-                    return fl.common.ndarrays_to_parameters(self.server_state), {}
-
-                avg_client_params = [
-                    np.sum([weights[i] * num_examples for weights, num_examples in weights_results], axis=0) / total_examples
-                    for i in range(len(weights_results[0][0]))
-                ]
-                
-                new_h = []
-                for h_param, server_param, avg_param in zip(self.h, self.server_state, avg_client_params):
-                    avg_update = avg_param - server_param
-                    new_h_param = h_param + avg_update
-                    new_h.append(new_h_param)
-                self.h = new_h
-
-                new_server_state = []
-                for h_param, avg_param in zip(self.h, avg_client_params):
-                    new_param = avg_param - (1.0 / self.alpha) * h_param
-                    new_server_state.append(new_param)
-
-                self.server_state = new_server_state
-                
-                aggregated_parameters = fl.common.ndarrays_to_parameters(self.server_state)
-                self.final_parameters = aggregated_parameters
-                metrics_aggregated = {}
-                if self.fit_metrics_aggregation_fn:
-                    fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
-                    metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
-                return aggregated_parameters, metrics_aggregated
-
-            def configure_evaluate(self, server_round: int, parameters: fl.common.Parameters, 
-                                 client_manager) -> List[Tuple[fl.server.client_proxy.ClientProxy, fl.common.EvaluateIns]]:
-                """Configure the next round of evaluation."""
-                if self.fraction_evaluate == 0.0:
-                    return []
-                sample_size, min_num_clients = self.num_evaluate_clients(client_manager.num_available())
-                clients = client_manager.sample(num_clients=sample_size, min_num_clients=min_num_clients)
-                config = {}
-                if self.on_evaluate_config_fn is not None:
-                    config = self.on_evaluate_config_fn(server_round)
-                return [(client, fl.common.EvaluateIns(parameters, config)) for client in clients]
-
-            def aggregate_evaluate(self, server_round: int, results: List[fl.server.client_proxy.ClientProxy], 
-                                 failures: List[fl.server.client_proxy.ClientProxy]) -> Tuple[Optional[fl.common.Parameters], Dict[str, Any]]:
-                """Aggregate evaluation results."""
-                if not results:
-                    return None, {}
-                metrics_aggregated = {}
-                if self.evaluate_metrics_aggregation_fn:
-                    eval_metrics = [(res.num_examples, res.metrics) for _, res in results]
-                    metrics_aggregated = self.evaluate_metrics_aggregation_fn(eval_metrics)
-                return None, metrics_aggregated
-
-            def evaluate(self, server_round: int, parameters: fl.common.Parameters) -> Optional[Tuple[float, Dict[str, Any]]]:
-                """Evaluate the current global model."""
-                return None
-
-            def num_fit_clients(self, num_available_clients: int) -> Tuple[int, int]:
-                """Determine number of clients for training."""
-                num_clients = int(num_available_clients * self.fraction_fit)
-                return max(num_clients, self.min_fit_clients), self.min_fit_clients
-
-            def num_evaluate_clients(self, num_available_clients: int) -> Tuple[int, int]:
-                """Determine number of clients for evaluation."""
-                num_clients = int(num_available_clients * self.fraction_evaluate)
-                return max(num_clients, self.min_evaluate_clients), self.min_evaluate_clients
-
-        alpha = getattr(args, 'feddyn_alpha', 0.01) 
-        return SaveModelFedDyn(alpha=alpha, **base_config)
 
     else:
         raise ValueError(f"Strategy {strategy_name} not supported")

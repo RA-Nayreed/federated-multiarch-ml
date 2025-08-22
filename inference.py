@@ -325,7 +325,7 @@ def main():
             Examples:
             %(prog)s --model_path models/cnn_mnist_fedavg.pth --image_path test.png
             %(prog)s --model_path models/snn_cifar10_fedprox.pth --image_folder test_images/
-            %(prog)s --model_path models/mlp_mnist_feddyn.pth --image_path digit.png --top_k 5
+            %(prog)s --model_path models/mlp_mnist_fedavg.pth --image_path digit.png --top_k 5
         """
     )
     
