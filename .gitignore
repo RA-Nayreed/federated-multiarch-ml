@@ -225,3 +225,4 @@ model_*/
 /benchmark_results/
 *.csv
 *.json
+test.py
