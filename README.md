@@ -76,38 +76,39 @@ python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pt
 
 ## Federated Learning Strategies
 
-| Strategy &nbsp; &nbsp; | Best For &nbsp; &nbsp; &nbsp; &nbsp; | Description &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; |
-|:-----------------|:--------------------------------|:------------------------------------------------------------------------------|
-| `fedavg`        | IID data                        | Standard federated averaging                                                    |
-| `fedprox`       | Non-IID data                    | Proximal regularization for heterogeneous clients                              |
-| `fedadagrad`    | Adaptive learning               | Adaptive gradient-based optimization                                           |
-| `fedadam`       | Complex optimization            | Adam-based federated learning                                                  |
+| Strategy | Best For | Description |
+|----------|----------|-------------|
+| `fedavg` | IID data | Standard federated averaging |
+| `fedprox` | Non-IID data | Proximal regularization for heterogeneous clients |
+| `fedadagrad` | Adaptive learning | Adaptive gradient-based optimization |
+| `fedadam` | Complex optimization | Adam-based federated learning |
 
 
 ## Command Line Arguments
 
 ### Core Parameters
-| Argument &nbsp; &nbsp; &nbsp; | Default &nbsp; &nbsp; | Description &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; |
-|:------------------------|:-------------------|:--------------------------------------------------------------------------------|
-| `--epochs`             | 40                | Number of federated rounds                                                        |
-| `--num_users`          | 10                | Number of clients                                                                |
-| `--frac`              | 1.0               | Fraction of clients per round                                                     |
-| `--local_ep`          | 6                 | Local training epochs                                                             |
-| `--local_bs`          | 32                | Local batch size                                                                  |
-| `--lr`                | 0.01              | Learning rate (auto-adjusted per model)                                           |
-| `--model`             | snn               | Model type: mlp, cnn, snn                                                         |
-| `--dataset`           | mnist             | Dataset: mnist, cifar10                                                           |
-| `--strategy`          | fedavg            | FL strategy: fedavg, fedprox, fedadagrad, fedadam                                |
-| `--iid`               | False             | Use IID data distribution                                                         |
-| `--gpu`               | False             | Enable GPU acceleration                                                           |
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--epochs` | 40 | Number of federated rounds |
+| `--num_users` | 10 | Number of clients |
+| `--frac` | 1.0 | Fraction of clients per round |
+| `--local_ep` | 6 | Local training epochs |
+| `--local_bs` | 32 | Local batch size |
+| `--lr` | 0.01 | Learning rate (auto-adjusted per model) |
+| `--model` | snn | Model type: mlp, cnn, snn |
+| `--dataset` | mnist | Dataset: mnist, cifar10 |
+| `--strategy` | fedavg | FL strategy: fedavg, fedprox, fedadagrad, fedadam |
+| `--iid` | False | Use IID data distribution |
+| `--gpu` | False | Enable GPU acceleration |
 
 ### Advanced Options
-| Argument &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; | Default &nbsp; &nbsp; | Description &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; |
-|:----------------------------------------|:-------------------|:------------------------------------------------------------------|
-| `--snn_timesteps`                       | 25                | SNN simulation time steps                                          |
-| `--fedprox_mu`                          | 0.1               | FedProx proximal term coefficient                                  |
-| `--use_lr_scheduler`                    | False             | Enable learning rate scheduling                                    |
-| `--warmup_epochs`                       | 5.0               | Warmup epochs for LR scheduler                                     |
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--snn_timesteps` | 25 | SNN simulation time steps |
+| `--fedprox_mu` | 0.1 | FedProx proximal term coefficient |
+
+| `--use_lr_scheduler` | False | Enable learning rate scheduling |
+| `--warmup_epochs` | 5.0 | Warmup epochs for LR scheduler |
 
 ## Project Structure
 
