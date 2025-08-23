@@ -64,9 +64,18 @@ python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pt
 - Suitable for both MNIST and CIFAR-10
 
 ### Convolutional Neural Network (CNN)
-- **MNIST**: 3 convolutional blocks (2 conv layers per block) with batch normalization and LeakyReLU, downsampling via stride=2 in blocks 2 and 3, Dropout2d for regularization, Global Average Pooling before fully connected layers
-- **CIFAR-10**: Enhanced architecture with 64→128→256 channels + 3 FC layers
-- MaxPooling, batch normalization, and dropout
+- **MNIST**: 6-layer CNN with 3 convolutional blocks (2 conv layers per block)
+  - Block 1: 1→32→32 channels with BatchNorm + LeakyReLU
+  - Block 2: 32→64→64 channels with stride-2 downsampling
+  - Block 3: 64→128→128 channels with stride-2 downsampling
+  - Dropout2d (p=0.25) after each block for regularization
+  - Global Average Pooling + hidden FC layer (128→128) + output layer
+- **CIFAR-10**: Deep block-based architecture with adaptive pooling
+  - Block 1: 3→64→128 channels with stride-2 downsampling, Dropout2d (p=0.2)
+  - Block 2: 128→256→256 channels with stride-2 downsampling, Dropout2d (p=0.2)
+  - Block 3: 256→512→256 channels with 1×1 conv reduction, Dropout2d (p=0.3)
+  - Adaptive Average Pooling + 3 FC layers (256→192→128→10)
+  - LeakyReLU activations throughout with dropout regularization
 
 ### Spiking Neural Network (SNN)
 - **MNIST**: 3-layer fully connected SNN with Leaky Integrate-and-Fire neurons
