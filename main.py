@@ -43,6 +43,12 @@ def run_simulation(args: argparse.Namespace) -> Optional[fl.server.history.Histo
     print("-" * 60)
     print("Starting Flower Federated Learning Simulation")
     print(f"Using device: {device}")
+    if device.type == "cuda":
+        # GPU info
+        print(f"GPU Model: {torch.cuda.get_device_name(0)}")
+        print(f"CUDA device count: {torch.cuda.device_count()}")
+        print(f"Current CUDA device index: {torch.cuda.current_device()}")
+
     print(f"Dataset: {args.dataset.upper()} |  Model: {args.model.upper()}")
     print(f"Strategy: {args.strategy.upper()}")
     print(f"Distribution: {'IID' if args.iid else 'Non-IID'}")
