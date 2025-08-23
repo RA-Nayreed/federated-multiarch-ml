@@ -1,7 +1,4 @@
-"""
-Flower Client and Strategy Implementations for Federated Learning.
 
-"""
 import flwr as fl
 import numpy as np
 import torch

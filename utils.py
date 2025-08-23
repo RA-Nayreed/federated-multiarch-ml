@@ -31,12 +31,6 @@ def get_parameters(net: torch.nn.Module) -> List[np.ndarray]:
     Args:
         net: PyTorch neural network model
         
-    Returns:
-        List of NumPy arrays representing model parameters
-        
-    Example:
-        >>> model = get_model('cnn', 'mnist')
-        >>> params = get_parameters(model)
     """
     return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
@@ -55,11 +49,7 @@ def create_lr_scheduler(optimizer: torch.optim.Optimizer, args: Any,
                        num_training_batches_per_epoch: int) -> torch.optim.lr_scheduler._LRScheduler:
     """
     Create a learning rate scheduler with warmup and cosine decay.
-    
-    This function creates a composite scheduler that combines:
-    1. Linear warmup phase (optional)
-    2. Cosine annealing decay phase
-    
+        
     """
     if not hasattr(args, 'local_ep') or args.local_ep <= 0:
         raise ValueError(f"Invalid local epochs configuration: {getattr(args, 'local_ep', None)}")
