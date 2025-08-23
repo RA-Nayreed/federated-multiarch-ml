@@ -64,7 +64,7 @@ python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pt
 - Suitable for both MNIST and CIFAR-10
 
 ### Convolutional Neural Network (CNN)
-- **MNIST**: 3 conv layers + 2 FC layers with batch normalization
+- **MNIST**: 3 convolutional blocks (2 conv layers per block) with batch normalization and LeakyReLU, downsampling via stride=2 in blocks 2 and 3, Dropout2d for regularization, Global Average Pooling before fully connected layers
 - **CIFAR-10**: Enhanced architecture with 64→128→256 channels + 3 FC layers
 - MaxPooling, batch normalization, and dropout
 
