@@ -145,8 +145,6 @@ def main():
                        help='Number of warmup epochs (can be fractional)')
     parser.add_argument('--lr_min', type=float, default=1e-6, 
                        help='Minimum learning rate for cosine decay')
-    parser.add_argument('--auto_switch_fedprox', action='store_true', 
-                       help='Auto-switch to FedProx for non-IID data')
     
     # Model and dataset parameters
     parser.add_argument('--model', type=str, default='snn', 
@@ -194,10 +192,6 @@ def main():
         if args.strategy == 'fedavg':
             print("Warning: FedAvg may be suboptimal for non-IID data.")
             print(f"Consider using: {', '.join(recommended_strategies)} for better performance.")
-
-            if args.auto_switch_fedprox:
-                args.strategy = 'fedprox'
-                print("Auto-switched to FedProx for non-IID data distribution")
 
         elif args.strategy in recommended_strategies:
             print(f"Using {args.strategy.upper()} for non-IID data distribution")
