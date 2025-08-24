@@ -236,7 +236,7 @@ class MNISTSNN(nn.Module):
         spk3_rec = []
         mem3_rec = []
         
-        for step in range(self.num_steps):
+        for _ in range(self.num_steps):
             cur1 = self.fc1(x.view(x.size(0), -1))
             spk1, mem1 = self.lif1(cur1, mem1)
             cur2 = self.fc2(spk1)
@@ -247,6 +247,7 @@ class MNISTSNN(nn.Module):
             mem3_rec.append(mem3)
             
         return torch.stack(spk3_rec, dim=0), torch.stack(mem3_rec, dim=0)
+    
 
 
 class CIFAR10SNN(nn.Module):
