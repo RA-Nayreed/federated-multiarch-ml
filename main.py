@@ -47,7 +47,6 @@ def run_simulation(args: argparse.Namespace) -> Optional[fl.server.history.Histo
         # GPU info
         print(f"GPU Model: {torch.cuda.get_device_name(0)}")
         print(f"CUDA device count: {torch.cuda.device_count()}")
-        print(f"Current CUDA device index: {torch.cuda.current_device()}")
 
     print(f"Dataset: {args.dataset.upper()} |  Model: {args.model.upper()}")
     print(f"Strategy: {args.strategy.upper()}")
