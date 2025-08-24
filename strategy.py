@@ -4,11 +4,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import weakref
-import gc
+import weakref, gc
 from torch.utils.data import DataLoader, Subset
 from typing import Dict, List, Tuple, Any
 from models import get_model
+from flwr.common import Context
 from flwr.server.strategy import FedProx, FedAdagrad, FedAdam
 from utils import (get_parameters, set_parameters, weighted_average, create_lr_scheduler)
 
@@ -307,10 +307,8 @@ class FlowerClient(fl.client.NumPyClient):
         avg_loss = test_loss / num_batches if num_batches > 0 else 0.0
         return avg_loss, accuracy
  
- 
 
-
-def client_fn(cid: str, train_data, test_data, client_data_dict, model_name: str, dataset: str, args) -> FlowerClient:
+def client_fn(context: Context) -> fl.client.Client:
     """
     Create a Flower client with proper cleanup handling.
     
@@ -318,19 +316,25 @@ def client_fn(cid: str, train_data, test_data, client_data_dict, model_name: str
     resource cleanup when the client is no longer needed.
     
     Args:
-        cid: Client ID as string
-        train_data: Training dataset
-        test_data: Test dataset
-        client_data_dict: Dictionary mapping client IDs to data indices
-        model_name: Type of neural network model
-        dataset: Dataset name
-        args: Configuration arguments
+        context: Flower Context object containing client information and configuration
 
+    Returns:
+        fl.client.Client: A Flower Client instance
     """
-    client_id = int(cid)
+    # Extract client ID and configuration from context state
+    client_id = int(context.state["client_id"])
+    
+    # Access dataset and model configuration from context state
+    train_data = context.state["train_data"]
+    test_data = context.state["test_data"]
+    client_data_dict = context.state["client_data_dict"]
+    model_name = context.state["model_name"]
+    dataset = context.state["dataset"]
+    args = context.state["args"]
+
     client_indices = client_data_dict.get(client_id)
     if client_indices is None:
-        client_indices = client_data_dict.get(cid, set())
+        client_indices = client_data_dict.get(context.client_id, set())
     if not client_indices:
         raise ValueError(f"Client {client_id} has no assigned data. Check data distribution.")
 
@@ -347,7 +351,8 @@ def client_fn(cid: str, train_data, test_data, client_data_dict, model_name: str
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         
-        return client
+        # Convert NumPyClient to Client
+        return client.to_client()
     
     except Exception as e:
         print(f"Error creating client {client_id}: {e}")

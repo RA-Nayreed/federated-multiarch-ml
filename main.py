@@ -10,14 +10,14 @@ strategies (FedAvg, FedProx, FedAdagrad, FedAdam).
 import flwr as fl
 import torch
 import numpy as np
-import argparse
-import random
+import argparse, random
 from typing import Optional
 
 # Import from modules
 from models import get_model
 from utils import (get_parameters, set_parameters, save_model,
                    load_data, distribute_data)
+from flwr.common import Context
 from strategy import get_federated_strategy, client_fn 
 
 # Set random seeds for reproducibility
@@ -72,8 +72,23 @@ def run_simulation(args: argparse.Namespace) -> Optional[fl.server.history.Histo
     # Define client function for simulation
     def create_client_fn(cid: str):
         """Create a client instance for the given client ID."""
-        client = client_fn(str(cid), train_data, test_data, client_data_dict, 
-                          args.model, args.dataset, args)
+        # Create base context with required parameters
+        context = Context(
+            run_id="1",  # Unique identifier for this run
+            node_id=str(cid),  # Use client ID as node ID
+            node_config={"device": str(device)},  # Basic node configuration
+            state={  # Store training state and data
+                "client_id": str(cid),
+                "train_data": train_data,
+                "test_data": test_data,
+                "client_data_dict": client_data_dict,
+                "model_name": args.model,
+                "dataset": args.dataset,
+                "args": args
+            },
+            run_config={}  # Empty run configuration
+        )
+        client = client_fn(context)
         return client
 
     # Determine client resources

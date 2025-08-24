@@ -18,7 +18,7 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 import numpy as np
-import os
+import os, warnings
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Any
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
@@ -109,6 +109,8 @@ def load_data(dataset: str) -> Tuple[torch.utils.data.Dataset, torch.utils.data.
     Load MNIST or CIFAR-10 dataset with appropriate preprocessing.
 
     """
+    warnings.filterwarnings('ignore', category=DeprecationWarning, 
+                          message="'mode' parameter is deprecated and will be removed in Pillow 13")
     if dataset == 'mnist':
         transform = transforms.Compose([
             transforms.ToTensor(),
