@@ -103,7 +103,7 @@ python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pt
 
 ### Advanced Options
 | Argument | Default | Description |
-|----------|---------|-------------|
+|---------------|---------|-------------------------|
 | `--snn_timesteps` | 25 | SNN simulation time steps |
 | `--fedprox_mu` | 0.1 | FedProx proximal term coefficient |
 | `--use_lr_scheduler` | False | Enable learning rate scheduling |
