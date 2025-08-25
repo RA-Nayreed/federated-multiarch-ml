@@ -142,16 +142,13 @@ python main.py --model mlp --dataset mnist --strategy fedprox --fedprox_mu 0.1 -
 
 ### Advanced Training
 ```bash
-# Large-scale federated learning with learning rate scheduling
-python main.py \
-    --model cnn \
-    --dataset cifar10 \
-    --strategy fedadam \
-    --num_users 20 \
-    --epochs 50 \
-    --use_lr_scheduler \
-    --warmup_epochs 3 \
-    --gpu
+ python -u main.py --model snn --dataset mnist --strategy fedavg --epochs 25 --num_users 10 --iid --snn_timesteps 25 --gpu --lr 0.001 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 3
+
+ python main.py --model snn --dataset mnist --strategy fedprox --fedprox_mu 1.0 --epochs 30 --num_users 10 --snn_timesteps 25 --gpu --lr 0.001 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 5
+
+ python main.py --model snn --dataset mnist --strategy fedadagrad --epochs 30 --num_users 10 --snn_timesteps 25 --gpu --lr 0.001 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 3
+
+ python main.py --model snn --dataset mnist --strategy fedadam --epochs 30 --num_users 10 --snn_timesteps 25 --gpu --lr 0.0005 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 3
 ```
 
 ## Model Inference Features
