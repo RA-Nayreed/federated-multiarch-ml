@@ -49,7 +49,7 @@ class FlowerClient(fl.client.NumPyClient):
         client_dataset = Subset(train_data, self.client_indices)
         if len(client_dataset) == 0:
             print(f"Client {client_id}: WARNING — no training samples for this client.")
-            self.trainloader = []  # sentinel for empty train set (train() checks len())
+            self.trainloader = [] 
             self.empty_train = True
         else:
             effective_batch_size = min(int(args.local_bs), max(1, len(client_dataset)))
@@ -321,10 +321,9 @@ def client_fn(context: Context) -> fl.client.Client:
     Returns:
         fl.client.Client: A Flower Client instance
     """
-    # Extract client ID and configuration from context state
+  
     client_id = int(context.state["client_id"])
     
-    # Access dataset and model configuration from context state
     train_data = context.state["train_data"]
     test_data = context.state["test_data"]
     client_data_dict = context.state["client_data_dict"]
@@ -362,19 +361,111 @@ def client_fn(context: Context) -> fl.client.Client:
             except Exception:
                 pass
         raise
-
-
-def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarray], args) -> fl.server.strategy.Strategy:
+class SaveFinalModelMixin:
     """
-    Factory function to create different federated learning strategies.
+    Mixin class to save the final aggregated parameters and evaluate with confusion matrix.
+    
+    This mixin ensures that the final model parameters are preserved
+    and evaluated on the server side after the federated learning process completes.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.final_parameters = None
+        self.server_evaluation_results = None
+        self._server_context = None
+        self._total_rounds = 25  # Default, will be overridden
+
+    def set_server_context(self, server_context: Dict[str, Any], total_rounds: int):
+        """Set the server context and total rounds for evaluation."""
+        self._server_context = server_context
+        self._total_rounds = total_rounds
+
+    def aggregate_fit(self, server_round: int, results, failures):
+        """
+        Aggregate results, save final parameters, and perform server-side evaluation.
+        """
+        aggregated_parameters, aggregated_metrics = super().aggregate_fit(
+            server_round, results, failures
+        )
+        if aggregated_parameters is not None:
+            self.final_parameters = aggregated_parameters
+            
+            # Perform server-side evaluation on final round
+            print(f"Round {server_round}/{self._total_rounds}")  
+            if server_round >= self._total_rounds:
+                print("Final round detected - generating confusion matrix...")
+                self._perform_server_evaluation()
+        
+        return aggregated_parameters, aggregated_metrics
+    
+    def _perform_server_evaluation(self):
+        """
+        Perform server-side evaluation with confusion matrix generation.
+        """
+        if self.final_parameters is None:
+            print("Warning: No final parameters available for server evaluation")
+            return
+            
+        try:
+            # Access context data for evaluation
+            if self._server_context is not None:
+                model_name = self._server_context.get('model_name', 'cnn')
+                dataset = self._server_context.get('dataset', 'mnist')
+                test_data = self._server_context.get('test_data')
+                snn_timesteps = self._server_context.get('snn_timesteps', 25)
+                
+                if test_data is not None:
+                    from models import get_model
+                    from utils import set_parameters, evaluate_model_server
+                    
+                    # Create and load model
+                    model = get_model(model_name, dataset, snn_timesteps)
+                    parameters_list = fl.common.parameters_to_ndarrays(self.final_parameters)
+                    set_parameters(model, parameters_list)
+                    
+                    # Evaluate model and generate confusion matrix
+                    # The following .get() calls will now find the correct values from the enriched context
+                    test_loss, test_accuracy, confusion_matrix = evaluate_model_server(
+                        model, test_data, model_name,
+                        dataset=dataset, strategy=self._server_context.get('strategy', 'fedavg'),
+                        num_clients=self._server_context.get('num_clients', 10),
+                        num_rounds=self._server_context.get('num_rounds', 5),
+                        save_confusion_matrix=True
+                    )
+                    
+                    self.server_evaluation_results = {
+                        'test_loss': test_loss,
+                        'test_accuracy': test_accuracy,
+                        'confusion_matrix': confusion_matrix
+                    }
+                    
+                    print(f"Server-side evaluation completed:")
+                    print(f"  Test Loss: {test_loss:.4f}")
+                    print(f"  Test Accuracy: {test_accuracy:.2f}%")
+                    
+                else:
+                    print("Warning: No test data available for server evaluation")
+            else:
+                print("Warning: No server context available for evaluation")
+                    
+        except Exception as e:
+            print(f"Error during server evaluation: {e}")
+            import traceback
+            traceback.print_exc()
+
+def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarray], 
+                          args, server_context: Dict[str, Any] = None) -> fl.server.strategy.Strategy:
+    """
+    Factory function to create different federated learning strategies with server evaluation.
     
     This function creates and configures various federated learning strategies
-    with appropriate hyperparameters and configuration functions.
+    with appropriate hyperparameters, configuration functions, and server-side evaluation.
     
     Args:
         strategy_name: Name of the strategy to create
         initial_parameters: Initial model parameters
         args: Configuration arguments containing strategy parameters
+        server_context: Context data for server-side evaluation (model_name, dataset, test_data, etc.)
 
     """
     def fit_config(server_round: int) -> Dict[str, Any]:
@@ -388,7 +479,6 @@ def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarr
     def evaluate_config(server_round: int) -> Dict[str, Any]:
         """Configuration function for evaluate rounds."""
         return {"server_round": server_round}
-
 
     frac = float(getattr(args, "frac", 1.0))
     num_users = int(getattr(args, "num_users", 1))
@@ -409,65 +499,71 @@ def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarr
     if initial_parameters is not None:
         base_config["initial_parameters"] = fl.common.ndarrays_to_parameters(initial_parameters)
 
-    class SaveFinalModelMixin:
-        """
-        Mixin class to save the final aggregated parameters.
-        
-        This mixin ensures that the final model parameters are preserved
-        after the federated learning process completes.
-        """
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.final_parameters = None
-
-        def aggregate_fit(
-            self,
-            server_round: int,
-            results,
-            failures,):
-            """
-            Aggregate results and save the final parameters.
-
-            """
-            aggregated_parameters, aggregated_metrics = super().aggregate_fit(
-                server_round, results, failures
-            )
-            if aggregated_parameters is not None:
-                self.final_parameters = aggregated_parameters
-            
-            return aggregated_parameters, aggregated_metrics
-
+    # Create strategy with server evaluation capability
     if strategy_name.lower() in ("fedavg", "fed_avg"):
         class FedAvgWithSave(SaveFinalModelMixin, fl.server.strategy.FedAvg):
             pass
-        return FedAvgWithSave(**base_config)
+                
+        strategy = FedAvgWithSave(**base_config)
+        strategy.set_server_context(server_context or {}, getattr(args, 'epochs', 10))
+        return strategy
         
     elif strategy_name.lower() == "fedprox":
         class FedProxWithSave(SaveFinalModelMixin, FedProx):
             pass
+                
         mu = float(getattr(args, "fedprox_mu", 0.1))
-        return FedProxWithSave(proximal_mu=mu, **base_config)
+        strategy = FedProxWithSave(proximal_mu=mu, **base_config)
+        strategy.set_server_context(server_context or {}, getattr(args, 'epochs', 10))
+        return strategy
 
     elif strategy_name.lower() in ("fedadagrad", "fed_adagrad"):
         class FedAdagradWithSave(SaveFinalModelMixin, FedAdagrad):
             pass
-        return FedAdagradWithSave(
+                
+        strategy = FedAdagradWithSave(
             eta=float(getattr(args, "server_lr", 0.01)),
             eta_l=float(getattr(args, "client_lr", 0.01)),
             tau=float(getattr(args, "server_tau", 1e-9)),
             **base_config,
         )
+        strategy.set_server_context(server_context or {}, getattr(args, 'epochs', 10))
+        return strategy
 
     elif strategy_name.lower() in ("fedadam", "fed_adam"):
         class FedAdamWithSave(SaveFinalModelMixin, FedAdam):
             pass
-        return FedAdamWithSave(
+                
+        strategy = FedAdamWithSave(
             eta=float(getattr(args, "server_lr", 0.01)),
             beta_1=float(getattr(args, "beta1", 0.9)),
             beta_2=float(getattr(args, "beta2", 0.999)),
             tau=float(getattr(args, "server_tau", 1e-9)),
             **base_config,
         )
+        strategy.set_server_context(server_context or {}, getattr(args, 'epochs', 10))
+        return strategy
+
+    elif strategy_name.lower() in ("fedadam", "fed_adam"):
+        class FedAdamWithSave(SaveFinalModelMixin, FedAdam):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self._server_context = server_context
+                self._total_rounds = getattr(args, 'epochs', 10) if 'args' in locals() else 10
+                
+            def aggregate_fit(self, server_round: int, results, failures):
+                self._is_final_round = (server_round >= self._total_rounds)
+                return super().aggregate_fit(server_round, results, failures)
+                
+        strategy = FedAdamWithSave(
+            eta=float(getattr(args, "server_lr", 0.01)),
+            beta_1=float(getattr(args, "beta1", 0.9)),
+            beta_2=float(getattr(args, "beta2", 0.999)),
+            tau=float(getattr(args, "server_tau", 1e-9)),
+            **base_config,
+        )
+        strategy._total_rounds = getattr(args, 'epochs', 10)
+        return strategy
 
     else:
         raise ValueError(f"Strategy {strategy_name} not supported")

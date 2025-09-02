@@ -6,3 +6,10 @@ numpy
 matplotlib
 tqdm
 Pillow
+pip install -U "flwr[simulation]"
+ pip install snntorch
+ pip install flwr  
+ pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+ pip install -U "flwr[simulation]" && pip install snntorch && pip install flwr && pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+ 
+chmod +x run.sh && ./run.sh

@@ -22,6 +22,11 @@ import os, warnings
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Any
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
+from sklearn.metrics import confusion_matrix 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def get_parameters(net: torch.nn.Module) -> List[np.ndarray]:
@@ -346,3 +351,93 @@ def load_model(model_path: str) -> Tuple[torch.nn.Module, Dict[str, Any]]:
         raise RuntimeError(f"Failed to create or load model {model_name} for dataset {dataset}: {e}")
     
     return model, checkpoint
+
+def evaluate_model_server(model: torch.nn.Module, test_data: torch.utils.data.Dataset, 
+                         model_name: str, dataset: str, strategy: str,
+                         num_clients: int, num_rounds: int,
+                         device: torch.device = None, 
+                         save_confusion_matrix: bool = True, 
+                         save_dir: str = "./results") -> Tuple[float, float, np.ndarray]:
+    """
+    Evaluate model on server side and generate confusion matrix.
+    
+    This function evaluates the aggregated model on the full test dataset
+    and optionally saves the confusion matrix for analysis.
+    
+    Args:
+        model: The aggregated model to evaluate
+        test_data: Test dataset
+        model_name: Name of the model ('snn', 'cnn', 'mlp')
+        device: Device to run evaluation on
+        save_confusion_matrix: Whether to save confusion matrix
+        save_dir: Directory to save results
+        
+    Returns:
+        Tuple of (test_loss, test_accuracy, confusion_matrix)
+    """
+   
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    model.to(device)
+    model.eval()
+    
+    # Create test dataloader
+    test_loader = torch.utils.data.DataLoader(test_data, batch_size=128, shuffle=False)
+    
+    criterion = torch.nn.CrossEntropyLoss()
+    test_loss = 0.0
+    all_predictions = []
+    all_targets = []
+    
+    with torch.no_grad():
+        for data, targets in test_loader:
+            data, targets = data.to(device), targets.to(device)
+            
+            if model_name == 'snn':
+                _, mem_rec = model(data)
+                if isinstance(mem_rec, list):
+                    mem_rec = torch.stack(mem_rec, dim=0)
+                outputs = mem_rec.sum(dim=0)
+            else:
+                outputs = model(data)
+            
+            loss = criterion(outputs, targets)
+            test_loss += loss.item()
+            
+            _, predicted = torch.max(outputs.data, 1)
+            all_predictions.extend(predicted.cpu().numpy())
+            all_targets.extend(targets.cpu().numpy())
+    
+    # Calculate metrics
+    test_loss /= len(test_loader)
+    accuracy = 100.0 * sum(np.array(all_predictions) == np.array(all_targets)) / len(all_targets)
+    
+    # Generate confusion matrix
+    cm = confusion_matrix(all_targets, all_predictions)
+    
+    # Save confusion matrix if requested
+    if save_confusion_matrix:
+        os.makedirs(save_dir, exist_ok=True)
+        
+        # Create detailed filename
+        filename_base = f"{model_name}_{dataset}_{strategy}_clients{num_clients}_rounds{num_rounds}"
+        
+        # Save as numpy array
+        cm_path = os.path.join(save_dir, f"confusion_matrix_{filename_base}.npy")
+        np.save(cm_path, cm)
+        
+        # Save as image
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+        plt.title(f'Confusion Matrix - {filename_base.upper()}')
+        plt.ylabel('True Label')
+        plt.xlabel('Predicted Label')
+        img_path = os.path.join(save_dir, f"confusion_matrix_{filename_base}.png")
+        plt.savefig(img_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        print(f"Confusion matrix saved to: {cm_path} and {img_path}")
+    
+    return test_loss, accuracy, cm
+

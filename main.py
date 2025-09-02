@@ -12,7 +12,7 @@ import torch
 import numpy as np
 import argparse, random
 from typing import Optional
-
+import traceback
 # Import from modules
 from models import get_model
 from utils import (get_parameters, set_parameters, save_model,
@@ -65,18 +65,26 @@ def run_simulation(args: argparse.Namespace) -> Optional[fl.server.history.Histo
     initial_model.to(device)
     initial_parameters = get_parameters(initial_model)
 
-    # Create federated strategy
-    strategy = get_federated_strategy(args.strategy, initial_parameters, args)
+    server_context = {
+        'model_name': args.model,
+        'dataset': args.dataset,
+        'test_data': test_data,
+        'snn_timesteps': args.snn_timesteps,
+        'strategy': args.strategy,
+        'num_clients': args.num_users,
+        'num_rounds': args.epochs
+    }
+    strategy = get_federated_strategy(args.strategy, initial_parameters, args, server_context)
 
     # Define client function for simulation
     def create_client_fn(cid: str):
         """Create a client instance for the given client ID."""
         # Create base context with required parameters
         context = Context(
-            run_id="1",  # Unique identifier for this run
-            node_id=str(cid),  # Use client ID as node ID
-            node_config={"device": str(device)},  # Basic node configuration
-            state={  # Store training state and data
+            run_id="1",  
+            node_id=str(cid),  
+            node_config={"device": str(device)},  
+            state={  
                 "client_id": str(cid),
                 "train_data": train_data,
                 "test_data": test_data,
@@ -85,7 +93,7 @@ def run_simulation(args: argparse.Namespace) -> Optional[fl.server.history.Histo
                 "dataset": args.dataset,
                 "args": args
             },
-            run_config={}  # Empty run configuration
+            run_config={}  
         )
         client = client_fn(context)
         return client
@@ -129,7 +137,6 @@ def run_simulation(args: argparse.Namespace) -> Optional[fl.server.history.Histo
     # Save the model
     save_model(final_model, args.model, args.dataset, args.strategy, args)
     return history
-
 
 def main():
     """
@@ -259,7 +266,7 @@ def main():
 
     except Exception as e:
         print(f"An error occurred during simulation: {e}")
-        import traceback
+        
         traceback.print_exc()
 
 
