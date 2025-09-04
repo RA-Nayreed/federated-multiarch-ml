@@ -34,7 +34,7 @@ pip install -r requirements.txt
     torchaudio
 
 2. Install PyTorch with CUDA 11.8:
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 
 
 3. Then install the remaining dependencies:
     pip install -r requirements.txt 
