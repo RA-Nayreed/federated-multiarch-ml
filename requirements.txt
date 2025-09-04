@@ -1,12 +1,12 @@
 flwr
 torch
 torchvision
+torchaudio
 snntorch
 numpy
 matplotlib
 tqdm
 Pillow
 flwr[simulation]
-torchaudio
 scikit-learn
 seaborn

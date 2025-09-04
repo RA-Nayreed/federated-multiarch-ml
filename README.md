@@ -23,8 +23,21 @@ git clone https://github.com/RA-Nayreed/federated-multiarch-ml.git
 cd federated-multiarch-ml
 
 # Install dependencies
-pip install -r requirements.txt       # CPU
-pip install -r requirements-gpu.txt   # GPU (CUDA 11.8)
+
+## CPU-only (default)
+pip install -r requirements.txt
+
+## GPU (CUDA 11.8)
+1. Open `requirements.txt` and **comment out** the following lines:
+    torch
+    torchvision
+    torchaudio
+2. Install PyTorch with CUDA 11.8:
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+3. Then install the remaining dependencies:
+pip install -r requirements.txt
+
 ```
 
 ### Run Training
