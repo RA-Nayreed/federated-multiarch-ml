@@ -23,7 +23,8 @@ git clone https://github.com/RA-Nayreed/federated-multiarch-ml.git
 cd federated-multiarch-ml
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements.txt       # CPU
+pip install -r requirements-gpu.txt   # GPU (CUDA 11.8)
 ```
 
 ### Run Training
@@ -122,7 +123,8 @@ federated-multiarch-ml/
 ├── requirements.txt     # Python dependencies
 ├── README.md           # This file
 ├── models/             # Saved models (created automatically)
-└── data/               # Dataset cache (created automatically)
+├── data/                # Dataset cache (created automatically)
+└── results/             # Confussion matrix log (created automatically)
 ```
 
 ## Training Examples
@@ -177,7 +179,6 @@ python main.py --model mlp --dataset mnist --strategy fedprox --fedprox_mu 0.1 -
 ## Troubleshooting
 
 - **CUDA Out of Memory**: Reduce batch size or number of clients
-- **Strategy Import Errors**: Install with `pip install flwr[strategies]`
 - **Poor Convergence**: Try different strategies or enable LR scheduling
 - **Data Distribution Warnings**: Normal for non-IID scenarios
 
