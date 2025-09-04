@@ -121,8 +121,8 @@ federated-multiarch-ml/
 ├── inference.py         # Model inference script
 ├── training.py          # Interactive training launcher
 ├── requirements.txt     # Python dependencies
-├── README.md           # This file
-├── models/             # Saved models (created automatically)
+├── README.md            # This file
+├── models/              # Saved models (created automatically)
 ├── data/                # Dataset cache (created automatically)
 └── results/             # Confussion matrix log (created automatically)
 ```
