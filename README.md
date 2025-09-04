@@ -29,14 +29,14 @@ pip install -r requirements.txt
 
 ## GPU (CUDA 11.8)
 1. Open `requirements.txt` and **comment out** the following lines:
- ```bash   torch
-     torchvision
-    torchaudio  ```
+    torch
+    torchvision
+    torchaudio
 2. Install PyTorch with CUDA 11.8:
-```bash
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 ```
+
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 
 3. Then install the remaining dependencies:
-```bash pip install -r requirements.txt  ```
+pip install -r requirements.txt 
 
 ```
 
