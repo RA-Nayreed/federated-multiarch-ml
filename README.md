@@ -23,7 +23,22 @@ git clone https://github.com/RA-Nayreed/federated-multiarch-ml.git
 cd federated-multiarch-ml
 
 # Install dependencies
+
+## CPU-only (default)
 pip install -r requirements.txt
+
+## GPU (CUDA 11.8)
+1. Open `requirements.txt` and **comment out** the following lines:
+    torch
+    torchvision
+    torchaudio
+
+2. Install PyTorch with CUDA 11.8:
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 
+
+3. Then install the remaining dependencies:
+    pip install -r requirements.txt 
+
 ```
 
 ### Run Training
@@ -120,9 +135,10 @@ federated-multiarch-ml/
 ├── inference.py         # Model inference script
 ├── training.py          # Interactive training launcher
 ├── requirements.txt     # Python dependencies
-├── README.md           # This file
-├── models/             # Saved models (created automatically)
-└── data/               # Dataset cache (created automatically)
+├── README.md            # This file
+├── models/              # Saved models (created automatically)
+├── data/                # Dataset cache (created automatically)
+└── results/             # Confusion matrix log  (created automatically)
 ```
 
 ## Training Examples
@@ -177,7 +193,6 @@ python main.py --model mlp --dataset mnist --strategy fedprox --fedprox_mu 0.1 -
 ## Troubleshooting
 
 - **CUDA Out of Memory**: Reduce batch size or number of clients
-- **Strategy Import Errors**: Install with `pip install flwr[strategies]`
 - **Poor Convergence**: Try different strategies or enable LR scheduling
 - **Data Distribution Warnings**: Normal for non-IID scenarios
 
