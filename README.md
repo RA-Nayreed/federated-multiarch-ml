@@ -138,7 +138,7 @@ federated-multiarch-ml/
 ├── README.md            # This file
 ├── models/              # Saved models (created automatically)
 ├── data/                # Dataset cache (created automatically)
-└── results/             # Confusion matrix log  (created automatically)
+└── results/             # Confusion matrix & log  (created automatically)
 ```
 
 ## Training Examples
