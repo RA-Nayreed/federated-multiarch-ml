@@ -59,7 +59,7 @@ def get_predictions(model, test_loader, model_name):
     
     print("Generating predictions...")
     with torch.no_grad():
-        for batch_idx, (data, targets) in enumerate(test_loader):
+        for _, (data, targets) in enumerate(test_loader):
             data, targets = data.to(device, non_blocking=True), targets.to(device, non_blocking=True)
             
             if model_name == 'snn':
