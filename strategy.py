@@ -1,4 +1,3 @@
-
 import flwr as fl
 import numpy as np
 import torch
