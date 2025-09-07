@@ -14,7 +14,7 @@ This document contains confusion matrix analysis for experiments conducted using
 ---
 
 ## 🔹 Experiment 1: FedAvg (IID)
-```
+
 - **Model:** SNN  
 - **Dataset:** MNIST  
 - **Strategy:** FedAvg  
@@ -24,7 +24,7 @@ This document contains confusion matrix analysis for experiments conducted using
 
 ### Confusion Matrix
 ![FedAvg Confusion Matrix](results/confusion_matrix_snn_mnist_fedavg.png)
-
+```
 ### Detailed Report
 ================================================================================
 CONFUSION MATRIX ANALYSIS RESULTS
