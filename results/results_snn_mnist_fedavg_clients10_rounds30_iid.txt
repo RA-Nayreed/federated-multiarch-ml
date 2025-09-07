@@ -1,0 +1,77 @@
+================================================================================
+CONFUSION MATRIX ANALYSIS RESULTS
+================================================================================
+Generated on: 2025-09-07 10:57:44
+
+MODEL CONFIGURATION
+----------------------------------------
+Model Type: SNN
+Dataset: MNIST
+Strategy: FEDAVG
+Number of Clients: 10
+Number of Rounds: 30
+Data Distribution: IID
+Learning Rate: 0.001
+Local Epochs: 2
+Local Batch Size: 32
+SNN Timesteps: 25
+
+OVERALL PERFORMANCE
+----------------------------------------
+Test Accuracy: 0.9198 (91.98%)
+Total Test Samples: 10000
+Correctly Classified: 9198
+Misclassified: 802
+
+PER-CLASS PERFORMANCE
+----------------------------------------
+Class           Accuracy   Support  Correct 
+---------------------------------------------
+Digit 0         0.9582     980      939     
+Digit 1         0.9736     1135     1105    
+Digit 2         0.9060     1032     935     
+Digit 3         0.9089     1010     918     
+Digit 4         0.9084     982      892     
+Digit 5         0.8991     892      802     
+Digit 6         0.9426     958      903     
+Digit 7         0.9212     1028     947     
+Digit 8         0.8819     974      859     
+Digit 9         0.8900     1009     898     
+
+Best Class: Digit 1 (0.9736)
+Worst Class: Digit 8 (0.8819)
+
+CONFUSION MATRIX
+----------------------------------------
+Rows: True Labels, Columns: Predicted Labels
+
+          0     1     2     3     4     5     6     7     8     9
+  0:    939     0     2     1     0    10    15     5     5     3
+  1:      0  1105     6     2     1     3     4     2    11     1
+  2:     13     2   935    19     8     2    11    16    23     3
+  3:      3     3    19   918     1    27     2     9    18    10
+  4:      1     2    10     0   892     0    12     6     9    50
+  5:     12     2     5    26     5   802    13     7    13     7
+  6:     12     2     7     0    12    12   903     3     5     2
+  7:      3     9    21     6     5     3     0   947     4    30
+  8:      9     1     7    26    12    17    12    13   859    18
+  9:      6     8     2    15    35    10     1    22    12   898
+
+DETAILED CLASSIFICATION REPORT
+----------------------------------------
+              precision    recall  f1-score   support
+
+     Digit 0     0.9409    0.9582    0.9494       980
+     Digit 1     0.9744    0.9736    0.9740      1135
+     Digit 2     0.9221    0.9060    0.9140      1032
+     Digit 3     0.9062    0.9089    0.9076      1010
+     Digit 4     0.9186    0.9084    0.9135       982
+     Digit 5     0.9052    0.8991    0.9021       892
+     Digit 6     0.9281    0.9426    0.9353       958
+     Digit 7     0.9194    0.9212    0.9203      1028
+     Digit 8     0.8957    0.8819    0.8888       974
+     Digit 9     0.8787    0.8900    0.8843      1009
+
+    accuracy                         0.9198     10000
+   macro avg     0.9189    0.9190    0.9189     10000
+weighted avg     0.9198    0.9198    0.9198     10000
