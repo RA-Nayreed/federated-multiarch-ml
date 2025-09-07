@@ -23,7 +23,7 @@ This document contains confusion matrix analysis for experiments conducted using
 - **Accuracy:** 91.98%  
 
 ### Confusion Matrix
-![FedAvg Confusion Matrix](results/confusion_matrix_snn_mnist_fedavg.png)
+![FedAvg Confusion Matrix](https://i.imgur.com/AI1lQJo.png)
 ```
 ### Detailed Report
 ================================================================================
@@ -102,7 +102,7 @@ weighted avg     0.9198    0.9198    0.9198     10000
 - **Accuracy:** 86.69%  
 
 ### Confusion Matrix
-![FedProx Confusion Matrix](results/confusion_matrix_snn_mnist_fedprox.png)
+![FedProx Confusion Matrix](https://i.imgur.com/lDH0X7E.png)
 
 ### Detailed Report
 ```
