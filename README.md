@@ -1,17 +1,19 @@
 # Federated Multiarch Machine Learning
 
-A Flower-based federated learning framework supporting MLP, CNN and Spiking Neural Networks (SNN) under both IID and non-IID data distributions.
+A Flower-based federated learning framework supporting **MLP, CNN, and Spiking Neural Networks (SNN)** under both IID and Non-IID data distributions.
+
+---
 
 ## Features
 
-- **Multiple Model Types**: Multi-Layer Perceptron (MLP), Convolutional Neural Network (CNN), and Spiking Neural Network (SNN)
-- **Federated Strategies**: FedAvg, FedProx, FedAdagrad, FedAdam
-- **Datasets**: MNIST and CIFAR-10 support
-- **Distribution Options**: Both IID and Non-IID data distribution
-- **Easy Training**: Interactive launcher with predefined configurations
-- **Model Inference**: Simple inference script for saved models
-- **GPU Support**: CUDA acceleration when available
-- **Advanced Features**: Learning rate scheduling, gradient clipping, automatic strategy recommendations
+- **Model Types:** MLP, CNN, SNN  
+- **Federated Strategies:** FedAvg, FedProx, FedAdagrad, FedAdam  
+- **Datasets:** MNIST, CIFAR-10  
+- **Distribution Options:** IID & Non-IID  
+- **GPU Support:** CUDA acceleration available  
+- **Advanced Features:** LR scheduling, gradient clipping, automatic strategy recommendations
+
+---
 
 ## Quick Start
 
@@ -39,36 +41,6 @@ pip install -r requirements.txt
 3. Then install the remaining dependencies:
     pip install -r requirements.txt 
 
-```
-
-### Run Training
-
-#### Option 1: Interactive Launcher (Recommended)
-```bash
-python training.py
-```
-Choose from 12 predefined configurations covering all model-dataset combinations.
-
-#### Option 2: Direct Command
-```bash
-# Example: SNN on MNIST with 10 clients
-python main.py --model snn --dataset mnist --epochs 15 --num_users 10 --iid --gpu
-
-# Example: CNN on CIFAR-10 with Non-IID distribution
-python main.py --model cnn --dataset cifar10 --epochs 20 --num_users 16 --gpu
-
-# Example: Advanced training with FedProx strategy
-python main.py --model cnn --dataset mnist --strategy fedprox --fedprox_mu 0.1 --epochs 30 --gpu
-```
-
-### Run Inference
-
-```bash
-# Single image prediction
-python inference.py --model_path models/snn_mnist_fedavg_clients10_rounds15.pth --image_path test_image.png
-
-# Batch inference on folder
-python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pth --image_folder test_images/
 ```
 
 ## Model Architectures
@@ -141,29 +113,66 @@ federated-multiarch-ml/
 └── results/             # Confusion matrix & log  (created automatically)
 ```
 
-## Training Examples
+## Results
 
-### Quick Start Examples
+Detailed confusion matrix and classification reports are available in **[RESULTS.md](RESULTS.md)**.
+
+### Summary
+
+| Model | Strategy | Clients | Rounds | Data    | Accuracy | Best Class       | Worst Class      |
+|-------|----------|---------|--------|---------|----------|-----------------|-----------------|
+| SNN   | FedAvg   | 10      | 30     | IID     | 91.98%   | Digit 1 (97.36%) | Digit 8 (88.19%) |
+| SNN   | FedProx  | 10      | 40     | Non-IID | 86.69%   | Digit 1 (97.62%) | Digit 9 (66.40%) |
+
+
+## Run Training
+
+### Option 1: Interactive Launcher (Recommended)
 ```bash
-# Basic CNN training on MNIST
-python main.py --model cnn --dataset mnist --epochs 20 --gpu
-
-# SNN with custom timesteps on CIFAR-10
-python main.py --model snn --dataset cifar10 --snn_timesteps 30 --epochs 25 --gpu
-
-# Non-IID training with FedProx
-python main.py --model mlp --dataset mnist --strategy fedprox --fedprox_mu 0.1 --epochs 30
+python training.py
 ```
+Choose from 12 predefined configurations covering all model-dataset combinations.
 
-### Advanced Training
+### Option 2: Direct Command
 ```bash
- python main.py --model snn --dataset mnist --strategy fedavg --epochs 25 --num_users 10 --iid --snn_timesteps 25 --gpu --lr 0.001 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 3
+# -----------------------------
+# Basic & Quick Training Examples
+# -----------------------------
 
- python main.py --model snn --dataset mnist --strategy fedprox --fedprox_mu 1.0 --epochs 30 --num_users 10 --snn_timesteps 25 --gpu --lr 0.001 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 5
+# SNN on MNIST with 10 clients (IID)
+python main.py --model snn --dataset mnist --epochs 15 --num_users 10 --iid --gpu
 
- python main.py --model snn --dataset mnist --strategy fedadagrad --epochs 30 --num_users 10 --snn_timesteps 25 --gpu --lr 0.001 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 3
+# CNN on CIFAR-10 with 16 clients (Non-IID)
+python main.py --model cnn --dataset cifar10 --epochs 20 --num_users 16 --gpu
 
- python main.py --model snn --dataset mnist --strategy fedadam --epochs 30 --num_users 10 --snn_timesteps 25 --gpu --lr 0.0005 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 3
+# CNN on MNIST with FedProx strategy
+python main.py --model cnn --dataset mnist --strategy fedprox --fedprox_mu 0.1 --epochs 30 --gpu
+
+# -----------------------------
+# Advanced Training Examples
+# -----------------------------
+
+# FedAvg SNN on MNIST with custom timesteps and scheduler
+python main.py --model snn --dataset mnist --strategy fedavg --epochs 25 --num_users 10 --iid --snn_timesteps 25 --gpu --lr 0.001 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 3
+
+# FedProx SNN on MNIST with strong proximal term
+python main.py --model snn --dataset mnist --strategy fedprox --fedprox_mu 1.0 --epochs 30 --num_users 10 --snn_timesteps 25 --gpu --lr 0.001 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 5
+
+# FedAdagrad SNN on MNIST
+python main.py --model snn --dataset mnist --strategy fedadagrad --epochs 30 --num_users 10 --snn_timesteps 25 --gpu --lr 0.001 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 3
+
+# FedAdam SNN on MNIST
+python main.py --model snn --dataset mnist --strategy fedadam --epochs 30 --num_users 10 --snn_timesteps 25 --gpu --lr 0.0005 --local_ep 2 --local_bs 32 --use_lr_scheduler --warmup_epochs 3
+
+```
+### Run Inference
+
+```bash
+# Single image prediction
+python inference.py --model_path models/snn_mnist_fedavg_clients10_rounds15.pth --image_path test_image.png
+
+# Batch inference on folder
+python inference.py --model_path models/cnn_cifar10_fedavg_clients16_rounds20.pth --image_folder test_images/
 ```
 
 ## Model Inference Features
