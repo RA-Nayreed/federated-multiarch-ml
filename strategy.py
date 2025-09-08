@@ -320,10 +320,8 @@ def client_fn(context: Context) -> fl.client.Client:
     Returns:
         fl.client.Client: A Flower Client instance
     """
-    # Extract client ID and configuration from context state
     client_id = int(context.state["client_id"])
     
-    # Access dataset and model configuration from context state
     train_data = context.state["train_data"]
     test_data = context.state["test_data"]
     client_data_dict = context.state["client_data_dict"]
@@ -433,7 +431,31 @@ def get_federated_strategy(strategy_name: str, initial_parameters: List[np.ndarr
             )
             if aggregated_parameters is not None:
                 self.final_parameters = aggregated_parameters
-            
+
+            # Compute variance of client accuracies and losses to diagnose heterogeneity
+            try:
+                client_losses = []
+                client_accs = []
+                for fit_res, _ in results:
+                    metrics = fit_res.metrics
+                    if 'train_loss' in metrics:
+                        client_losses.append(float(metrics['train_loss']))
+                    if 'train_accuracy' in metrics:
+                        client_accs.append(float(metrics['train_accuracy']))
+    
+                var_loss = float(np.var(client_losses)) if client_losses else float('nan')
+                var_acc = float(np.var(client_accs)) if client_accs else float('nan')
+            except Exception:
+                var_loss = float('nan')
+                var_acc = float('nan')
+
+            if aggregated_metrics:
+                print(
+                    f"Round {server_round} training metrics: "
+                    f"train_loss={aggregated_metrics.get('train_loss', float('nan')):.4f}, "
+                    f"train_accuracy={aggregated_metrics.get('train_accuracy', float('nan')):.2f}%, "
+                    f"var_client_loss={var_loss:.6f}, var_client_acc={var_acc:.6f}"
+                )
             return aggregated_parameters, aggregated_metrics
 
     if strategy_name.lower() in ("fedavg", "fed_avg"):
