@@ -119,10 +119,11 @@ Detailed confusion matrix and classification reports are available in **[RESULTS
 
 ### Summary
 
-| Model | Strategy | Clients | Rounds | Data    | Accuracy | Best Class       | Worst Class      |
-|-------|----------|---------|--------|---------|----------|-----------------|-----------------|
-| SNN   | FedAvg   | 10      | 30     | IID     | 91.98%   | Digit 1 (97.36%) | Digit 8 (88.19%) |
-| SNN   | FedProx  | 10      | 40     | Non-IID | 86.69%   | Digit 1 (97.62%) | Digit 9 (66.40%) |
+| Dataset | Model | Strategy | Clients | Rounds | Data | Accuracy | Best Class | Worst Class |
+|-------|-------|----------|---------|--------|------|----------|------------|-------------|
+| MNIST   | SNN   | FedAvg   | 10      | 30     | IID  | **91.98%** | Digit 1 (97.36%) | Digit 8 (88.19%) |
+| MNIST   | SNN   | FedProx  | 10      | 40     | Non-IID | **86.69%** | Digit 1 (97.62%) | Digit 9 (66.40%) |
+
 
 
 ## Run Training
